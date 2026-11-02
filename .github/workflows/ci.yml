@@ -54,14 +54,20 @@ jobs:
       - name: 构建微信小程序
         run: npm run build:mp-weixin
 
-      # 客户端本就存不下密钥，但还是堵一下「不小心把密钥写进源码」这条路
+      # 客户端本就存不下密钥，但还是堵一下「不小心把密钥写进源码」这条路。
+      #
+      # 两个必须的限定：
+      # - `--exclude-dir=ocr`：static/ocr 下是 tesseract 的 wasm 内核（压缩后的第三方 JS）
+      #   与中文模型，几 MB 随机字节里必然撞上 AKID / sk- 这类规则，实测每次都误伤；
+      # - `-I`：二进制文件直接跳过，别让 .gz 模型走进正则。
+      # 除这两处外全量扫描，不放宽规则本身。
       - name: 扫描产物中的疑似密钥
         run: |
-          if grep -rnE '(sk-[A-Za-z0-9]{20,}|AKID[A-Za-z0-9]{16,}|gh[pous]_[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)' dist; then
+          if grep -rnI --exclude-dir=ocr -E '(sk-[A-Za-z0-9]{20,}|AKID[A-Za-z0-9]{16,}|gh[pous]_[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)' dist; then
             echo "::error::产物里出现了疑似密钥，请检查"
             exit 1
           fi
-          echo "产物中未发现疑似密钥"
+          echo "产物中未发现疑似密钥（已跳过 static/ocr 第三方资源与二进制）"
 
       - name: 上传 H5 产物
         uses: actions/upload-artifact@v6

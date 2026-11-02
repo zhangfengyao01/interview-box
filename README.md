@@ -287,7 +287,7 @@ acceptDraft({ editedText, overwrite })   ← 唯一写 reference_answer 的入�
 | `npm run build:h5` | 成功，按路由分包 |
 | `npm run build:mp-weixin` | 成功，`plus.sqlite` 未进包 |
 | `npm run verify:backup` | **35 项全通过**（导出 → 清空 → 覆盖恢复 → 合并恢复，含 5 条负例） |
-| 产物密钥扫描 | `dist/` 内无 `sk-` / `AKID` / `gh?_` / 私钥块，命中即 fail |
+| 产物密钥扫描 | `dist/` 内无 `sk-` / `AKID` / `gh?_` / 私钥块，命中即 fail（跳过 `static/ocr` 第三方 wasm 内核与二进制 —— 那几 MB 随机字节必然误伤，规则本身没放宽，塞个假 `AKID` 进去照样能拦下） |
 | GitHub Pages | verify 全绿后自动部署到 <https://zhangfengyao01.github.io/interview-box/>（PR 只验不发布） |
 | 启动兜底（H5）※ | 四种情形实测：正常不出现 / 资源 404 立即报出失败 URL / 脚本空转 8 秒超时报 / 慢加载跨过超时后自动撤回 |
 | UTS 插件本地编译 ※ | `cli compile app-android` **编译成功**，ML Kit 两包依赖经 Gradle 拉通，详见 6.4 |

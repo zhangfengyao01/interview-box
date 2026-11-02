@@ -1,0 +1,6 @@
+# 统一用 LF，避免 Windows 下 autocrlf 反复改写
+* text=auto eol=lf
+
+# 截图是二进制
+*.png binary
+*.jpg binary

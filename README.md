@@ -4,6 +4,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
 ![SQLite](https://img.shields.io/badge/SQLite-plus.sqlite-003B57)
 ![tests](https://img.shields.io/badge/verify%3Abackup-35%20passed-2EA043)
+![license](https://img.shields.io/badge/license-MIT-2EA043)
 
 按 `面试题匣prd.md` 实现的面试题知识库：**图片 → OCR → 拆题 → 校对 → 入库 → 复习**，
 数据全部存在本机，无账号体系，断网可用。UI 与设计稿
@@ -80,6 +81,11 @@ npm run verify:backup   # 备份三段式端到端验证（导出 → 清空 →
 
 首次启动自动播种示例数据（4 个分类、10 个标签、18 道题），
 `更多 → 清空数据` 可从零开始。播种前先判空，不会覆盖你后来的题。
+
+> `npm run preview` 会调本机 Chrome 截图。默认找
+> `/c/Program Files/Google/Chrome/Application/chrome.exe`（Git Bash 写法），
+> 装在别处就指定一次：`CHROME_BIN="/c/Program Files (x86)/Google/Chrome/Application/chrome.exe" npm run preview`。
+> 没装 Chrome 也不影响开发，只是截图脚本会失败。
 
 ---
 
@@ -301,3 +307,12 @@ headless Chrome 有约 **504px 的最小视口**，直接 `--window-size=390,844
 - `scripts/verify-backup.mjs`（`npm run verify:backup`）：备份三段式的端到端验证，见 6.0。
 - `scripts/port-page.js`：迁移期用于把旧页面「原样保留 template/style、只换 script」，
   保证换技术栈不改像素。
+
+---
+
+## 九、许可证
+
+[MIT](LICENSE) © 2026 张凤垚。随便用、随便改，保留版权声明即可。
+
+界面按给定设计稿复刻，设计稿版权归原作者；仓库内不含任何设计源文件。
+项目不内置任何 OCR / 大模型的密钥，也没有账号体系，**没有收集任何用户数据**。

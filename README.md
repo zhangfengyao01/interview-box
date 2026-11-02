@@ -1,10 +1,59 @@
 # 面试题匣 · 本地优先面试题库
 
+![uni-app](https://img.shields.io/badge/uni--app-Vue3%20%2B%20Vite-5B50F5)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
+![SQLite](https://img.shields.io/badge/SQLite-plus.sqlite-003B57)
+![tests](https://img.shields.io/badge/verify%3Abackup-35%20passed-2EA043)
+
 按 `面试题匣prd.md` 实现的面试题知识库：**图片 → OCR → 拆题 → 校对 → 入库 → 复习**，
 数据全部存在本机，无账号体系，断网可用。UI 与设计稿
 「面试题库智能学习应用界面展示」逐屏对齐。
 
 **技术栈**：uni-app CLI（Vue3 + TypeScript + Vite）· Pinia · SQLite（`plus.sqlite`）· UTS OCR 插件
+
+---
+
+## 界面一览
+
+下面每一张都是**真实渲染的截图**，不是效果图：`npm run build:h5` 出包 → 起静态服务 →
+用固定 390px 宽的 iframe 承载页面 → 2 倍图截图（为什么必须走 iframe 见 [6.2](#62-截图为什么必须走-iframe)）。
+源码在 `preview/screens.sh`，随时可自己重跑一遍。
+
+### 设计稿的 8 屏
+
+<img src="preview/ui-8-screens.png" width="900" alt="设计稿 8 屏实现">
+
+<table>
+  <tr>
+    <td align="center"><img src="preview/screens/01-home.png" width="180" alt="首页"><br><sub><b>01</b> 首页 · 四入口 + 真实统计</sub></td>
+    <td align="center"><img src="preview/screens/02-capture.png" width="180" alt="识别面试题"><br><sub><b>02</b> 识别 · 图片 / 粘贴文本</sub></td>
+    <td align="center"><img src="preview/screens/03-library.png" width="180" alt="我的题库"><br><sub><b>03</b> 题库 · 一个白容器四行</sub></td>
+    <td align="center"><img src="preview/screens/04-review.png" width="180" alt="学习与复习"><br><sub><b>04</b> 复习 · 今日进度环</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="preview/screens/05-plan.png" width="180" alt="复习计划"><br><sub><b>05</b> 计划 · 1/3/7 天到期表</sub></td>
+    <td align="center"><img src="preview/screens/06-profile.png" width="180" alt="更多"><br><sub><b>06</b> 更多 · 备份 / 清空 / 设置</sub></td>
+    <td align="center"><img src="preview/screens/07-detail.png" width="180" alt="题目详情"><br><sub><b>07</b> 详情 · 参考回答 + 笔记</sub></td>
+    <td align="center"><img src="preview/screens/08-ocr-result.png" width="180" alt="识别结果校对"><br><sub><b>08</b> 识别结果 · 按编号拆题</sub></td>
+  </tr>
+</table>
+
+### 设计稿没画、但内部要验收的 5 屏
+
+<img src="preview/ui-extra-pages.png" width="900" alt="补充验收的 5 个二级页">
+
+<table>
+  <tr>
+    <td align="center"><img src="preview/screens/09-edit.png" width="150" alt="编辑题目"><br><sub><b>09</b> 编辑题目 · AI 草稿只作草稿</sub></td>
+    <td align="center"><img src="preview/screens/10-study.png" width="150" alt="复习会话"><br><sub><b>10</b> 复习会话 · 先答后看</sub></td>
+    <td align="center"><img src="preview/screens/11-batch-save.png" width="150" alt="确认入库"><br><sub><b>11</b> 确认入库 · 逐题打标</sub></td>
+    <td align="center"><img src="preview/screens/12-backup.png" width="150" alt="备份与恢复"><br><sub><b>12</b> 备份恢复 · 导出 / 覆盖 / 合并</sub></td>
+    <td align="center"><img src="preview/screens/13-settings.png" width="150" alt="设置"><br><sub><b>13</b> 设置 · 引擎与授权状态</sub></td>
+  </tr>
+</table>
+
+> 截图为演示库初始状态：共 18 题、今天还没学，所以复习环是 `0 / 20`。
+> 这些数字全部来自真实统计，没有写死（见 [已知限制](#七已知限制如实列出) 第 5 条）。
 
 ---
 
@@ -170,7 +219,7 @@ acceptDraft({ editedText, overwrite })   ← 唯一写 reference_answer 的入�
 | `npm run build:mp-weixin` | 成功，`plus.sqlite` 未进包 |
 | `npm run verify:backup` | **35 项全通过**（导出 → 清空 → 覆盖恢复 → 合并恢复，含 5 条负例） |
 | 密钥泄漏检查 | 产物内无 secret / token 字样（客户端本就不存密钥） |
-| 视觉对照 | `npm run preview` 真实渲染 **13 屏**（设计稿 8 屏 + 5 个二级页），逐屏比对；汇总图 `preview/ui-8-screens.png` |
+| 视觉对照 | `npm run preview` 真实渲染 **13 屏**（设计稿 8 屏 + 5 个二级页），逐屏比对，全部图见上面的[界面一览](#界面一览) |
 
 ### 6.0 备份恢复验的是什么
 

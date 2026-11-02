@@ -23,11 +23,13 @@ jobs:
     timeout-minutes: 20
 
     steps:
+      # checkout@v5 / setup-node@v5 / upload-artifact@v6 都已切到 node24 运行时，
+      # 留 v4 会在 runner 上被强制跑在 node24 并产生弃用告警。
       - name: 检出代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 准备 Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
@@ -61,7 +63,7 @@ jobs:
           echo "产物中未发现疑似密钥"
 
       - name: 上传 H5 产物
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: dist-h5
           path: dist/build/h5

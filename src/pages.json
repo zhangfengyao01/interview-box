@@ -1,0 +1,116 @@
+{
+  "easycom": {
+    "autoscan": true
+  },
+  "pages": [
+    {
+      "path": "pages/home/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "面试题匣"
+      }
+    },
+    {
+      "path": "pages/library/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "我的题库"
+      }
+    },
+    {
+      "path": "pages/review/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "学习与复习"
+      }
+    },
+    {
+      "path": "pages/profile/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "更多"
+      }
+    },
+    {
+      "path": "pages/capture/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "识别面试题"
+      }
+    },
+    {
+      "path": "pages/capture/ocr-review",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "识别结果"
+      }
+    },
+    {
+      "path": "pages/capture/batch-save",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "确认入库"
+      }
+    },
+    {
+      "path": "pages/question/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "题目详情"
+      }
+    },
+    {
+      "path": "pages/question/edit",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "编辑题目"
+      }
+    },
+    {
+      "path": "pages/review/plan",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "复习计划"
+      }
+    },
+    {
+      "path": "pages/study/session",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "学习"
+      }
+    },
+    {
+      "path": "pages/profile/backup",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "备份与恢复"
+      }
+    },
+    {
+      "path": "pages/profile/settings",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "设置"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "面试题匣",
+    "navigationBarBackgroundColor": "#FFFFFF",
+    "backgroundColor": "#FFFFFF",
+    "app-plus": {
+      "background": "#FFFFFF"
+    }
+  },
+  "condition": {
+    "current": 0,
+    "list": [
+      {
+        "name": "首页",
+        "path": "pages/home/index"
+      }
+    ]
+  }
+}

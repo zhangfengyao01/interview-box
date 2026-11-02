@@ -1,0 +1,24 @@
+# 依赖与构建产物
+node_modules/
+dist/
+unpackage/
+.hbuilderx/
+
+# 设计稿切片：约 12MB，只用于本地逐屏比对，不入库
+preview/_ref/
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.local
+
+# 环境变量与密钥（客户端本不存密钥，这里只是兜底）
+.env
+.env.*
+!.env.example
+
+# 日志
+*.log
+npm-debug.log*

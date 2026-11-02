@@ -7,7 +7,7 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# 只读权限就够：这里不发布、不写库
+# 默认只读；deploy 那个 job 自己再提权（pages + id-token），别一上来就给大权限
 permissions:
   contents: read
 
@@ -47,6 +47,7 @@ jobs:
       - name: 备份恢复端到端
         run: npm run verify:backup
 
+      # 这里刻意不设 UNI_H5_BASE：验的是「本地默认 '/' 地址」这条路径
       - name: 构建 H5
         run: npm run build:h5
 
@@ -69,3 +70,51 @@ jobs:
           path: dist/build/h5
           retention-days: 7
           if-no-files-found: error
+
+  # 只有 verify 全绿才部署；PR 只验不发布
+  deploy:
+    name: deploy · GitHub Pages
+    needs: verify
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v5
+
+      - name: 准备 Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci --no-audit --fund=false
+
+      # 刻意重新构建，而不是复用 verify 的 dist-h5：
+      # Pages 把站点挂在 /interview-box/ 子路径下，产物里的资源必须带这个前缀；
+      # verify 那份是用默认 '/' 构建的，直接拿去部署会全站 404（assets 找不到）。
+      # 仓库改名或以后绑自定义域名，这里要同步改。
+      - name: 构建 H5（Pages 子路径）
+        env:
+          UNI_H5_BASE: /interview-box/
+        run: npm run build:h5
+
+      - name: 读取 Pages 配置
+        uses: actions/configure-pages@v6
+
+      - name: 打包站点
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist/build/h5
+
+      - name: 部署
+        id: deploy
+        uses: actions/deploy-pages@v5

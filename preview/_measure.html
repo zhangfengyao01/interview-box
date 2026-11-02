@@ -1,0 +1,54 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>measure</title>
+<style>html,body{margin:0;background:#fff}iframe{width:390px;height:844px;border:0}</style></head>
+<body>
+<iframe id="f"></iframe>
+<pre id="out">pending</pre>
+<script>
+  var q = new URLSearchParams(location.search);
+  var p = q.get('p') || '/pages/library/index';
+  var sel = q.get('s') || '.tabs';
+  var f = document.getElementById('f');
+  f.src = 'http://127.0.0.1:4567/#' + p;
+  function info(el) {
+    if (!el) return null;
+    var r = el.getBoundingClientRect();
+    var cs = getComputedStyle(el);
+    return { tag: el.tagName, cls: String(el.className || '').slice(0, 40),
+      rect: [Math.round(r.x), Math.round(r.y), Math.round(r.width), Math.round(r.height)],
+      h: cs.height, lh: cs.lineHeight, fs: cs.fontSize, ov: cs.overflow,
+      pad: cs.padding, mar: cs.margin, disp: cs.display, bs: cs.boxSizing };
+  }
+  setTimeout(function () {
+    var out = { selectors: [] };
+    try {
+      var d = f.contentDocument;
+      out.innerW = f.contentWindow.innerWidth;
+      sel.split(',').forEach(function (s) {
+        var list = d.querySelectorAll(s);
+        out.selectors.push({ sel: s, count: list.length,
+          items: Array.prototype.slice.call(list, 0, 5).map(info) });
+      });
+      var pt = (q.get('pt') || '').split(',').map(Number);      if (pt.length === 2 && !isNaN(pt[0])) {
+        out.stack = [];
+        var el = d.elementFromPoint(pt[0], pt[1]);
+        while (el && out.stack.length < 8) {
+          var r2 = el.getBoundingClientRect(), c2 = getComputedStyle(el);
+          out.stack.push([el.tagName, String(el.className).slice(0, 30),
+            Math.round(r2.y), Math.round(r2.height), c2.backgroundColor, c2.position]);
+          el = el.parentElement;
+        }
+      }
+    } catch (e) { out.err = String(e); }
+    try {
+      var raw = f.contentWindow.localStorage.getItem('interview_box_db_v1');
+      var db = raw ? JSON.parse(raw) : null;
+      if (db && db.data) db = db.data;
+      if (typeof db === 'string') db = JSON.parse(db);
+      var qs = (db && db.tables && db.tables.questions) || [];
+      out.firstQuestion = qs.length ? qs[0].id : '';
+      out.questionCount = qs.length;
+    } catch (e2) { out.dbErr = String(e2); }
+    document.getElementById('out').textContent = JSON.stringify(out, null, 1);
+  }, 2500);
+</script>
+</body></html>

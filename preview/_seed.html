@@ -1,0 +1,77 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>seed</title><style>
+html,body{margin:0;background:#fff}iframe{width:390px;height:var(--h,1000px);border:0;display:block}
+</style></head><body>
+<iframe id="f"></iframe>
+<script>
+  // 往 uni 的 H5 存储里塞一份「草稿」，再跳到依赖这份草稿的页面，用真实渲染验收。
+  // uni 的 H5 存储格式：localStorage[key] = JSON.stringify({type, data})
+  //   kind=ocr   → capture/ocr-review（识别结果页）
+  //   kind=batch → capture/batch-save（批量入库确认页）
+  var q = new URLSearchParams(location.search);
+  var h = q.get('h');
+  if (h) document.body.style.setProperty('--h', h + 'px');
+
+  var ocrText = [
+    '1. 请介绍一下你对前端工程化的理解？',
+    '解析：前端工程化主要包括模块化、自动化构建、代码规范、持续集成等，能够提升开发效率和代码质量。',
+    '2. 你如何看待前端框架的选择？',
+    '解析：不同项目有不同的技术选型，通常会考虑团队技术栈、项目需求、生态支持等因素。',
+    '3. 说说你对性能优化的理解？',
+    '解析：性能优化包括网络层、渲染层、代码层三个维度，先量化再优化，避免过早优化。',
+    '4. 什么是闭包？说说它的应用场景。',
+    '解析：闭包是函数与其词法作用域的组合，常用于私有变量、函数柯里化和防抖节流。'
+  ].join('\n')
+
+  var seeds = {
+    ocr: {
+      key: 'capture_draft',
+      route: '/pages/capture/ocr-review',
+      data: { source: 'album', rawText: ocrText, editedText: '', imagePath: '' }
+    },
+    batch: {
+      key: 'batch_draft',
+      route: '/pages/capture/batch-save',
+      data: {
+        meta: { sourceType: 'text', ocrEngine: 'local-ocr-lite', rawText: ocrText },
+        items: [
+          {
+            title: '请介绍一下你对前端工程化的理解？',
+            content: '前端工程化包括模块化、构建、规范、CI。',
+            referenceAnswer: '模块化、自动化构建、代码规范、持续集成四件事，目标是让协作与交付可预测。',
+            tags: ['工程化']
+          },
+          {
+            title: '你如何看待前端框架的选择？',
+            content: '选型要看团队与项目。',
+            referenceAnswer: '看团队技术栈、项目周期、生态与招人成本，不追新。',
+            tags: ['框架']
+          },
+          {
+            title: '说说你对性能优化的理解？',
+            content: '网络层、渲染层、代码层。',
+            referenceAnswer: '先量化再优化：LCP/INP 指标先行，再定位到具体瓶颈。',
+            tags: ['性能']
+          }
+        ]
+      }
+    }
+  }
+
+  var kind = q.get('kind') === 'batch' ? 'batch' : 'ocr';
+  var plan = seeds[kind];
+  var f = document.getElementById('f');
+  var base = 'http://127.0.0.1:4567/#';
+
+  f.onload = function () {
+    if (f.getAttribute('seeded')) return;
+    f.setAttribute('seeded', '1');
+    try {
+      localStorage.setItem(plan.key, JSON.stringify({ type: 'object', data: plan.data }));
+    } catch (e) {
+      document.title = 'seedfail:' + e;
+    }
+    f.contentWindow.location.hash = plan.route;
+  };
+  f.src = base + '/pages/home/index';
+</script>
+</body></html>

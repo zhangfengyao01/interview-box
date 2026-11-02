@@ -1,0 +1,56 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>shot</title><style>
+html,body{margin:0;padding:0;background:#fff}
+iframe{width:390px;height:var(--h,844px);border:0;display:block}
+</style></head><body>
+<iframe id="f"></iframe>
+<script>
+  var q = new URLSearchParams(location.search);
+  var h = q.get('h');
+  if (h) document.body.style.setProperty('--h', h + 'px');
+  var path = q.get('p') || '/pages/home/index';
+  var base = 'http://127.0.0.1:4567/#';
+  var f = document.getElementById('f');
+  var idArg = q.get('id');
+
+  function readId() {
+    // uni 的 H5 存储：{schemaVersion, tables:{questions:[...]}}
+    var raw = localStorage.getItem('interview_box_db_v1');
+    if (!raw) return '';
+    var db = JSON.parse(raw);
+    if (db && db.data) db = db.data;
+    if (typeof db === 'string') db = JSON.parse(db);
+    var qs = (db && db.tables && db.tables.questions) || (db && db.questions) || [];
+    return qs.length ? qs[0].id : '';
+  }
+
+  var needsId = idArg === 'auto' || path.indexOf('{{id}}') >= 0;
+
+  if (needsId) {
+    // 演示数据每次冷启动都会重新播种（id 是随机 uuid），所以必须在同一次会话里
+    // 先让应用启动、读出 id，再用 hash 路由跳过去。
+    // 注意：先停在首页，不能直接开在目标页 —— 同一路由只换 query 时 uni 的
+    // hash 路由不会重新 mount，页面会一直停在空状态。
+    f.onload = function () {
+      if (f.getAttribute('data-stepped')) return;
+      f.setAttribute('data-stepped', '1');
+      var tries = 0;
+      var timer = setInterval(function () {
+        var id = readId();
+        tries++;
+        if (id) {
+          clearInterval(timer);
+          var target = path.indexOf('{{id}}') >= 0
+            ? path.replace('{{id}}', encodeURIComponent(id))
+            : (path + (path.indexOf('?') >= 0 ? '&' : '?') + 'id=' + encodeURIComponent(id));
+          f.contentWindow.location.hash = target;
+        } else if (tries > 20) {
+          clearInterval(timer);
+        }
+      }, 300);
+    };
+    f.src = base + '/pages/home/index';
+  } else {
+    f.src = base + path;
+  }
+</script>
+</body></html>

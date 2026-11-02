@@ -1,6 +1,7 @@
 # 面试题匣 · 本地优先面试题库
 
 [![CI](https://github.com/zhangfengyao01/interview-box/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/zhangfengyao01/interview-box/actions/workflows/ci.yml)
+[![在线预览](https://img.shields.io/badge/demo-%E5%9C%A8%E7%BA%BF%E9%A2%84%E8%A7%88-5B50F5)](https://zhangfengyao01.github.io/interview-box/)
 ![uni-app](https://img.shields.io/badge/uni--app-Vue3%20%2B%20Vite-5B50F5)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
 ![SQLite](https://img.shields.io/badge/SQLite-plus.sqlite-003B57)
@@ -12,6 +13,12 @@
 「面试题库智能学习应用界面展示」逐屏对齐。
 
 **技术栈**：uni-app CLI（Vue3 + TypeScript + Vite）· Pinia · SQLite（`plus.sqlite`）· UTS OCR 插件
+
+> **在线预览**：<https://zhangfengyao01.github.io/interview-box/>（push 到 main 自动发布）
+>
+> 这是 **H5 版**：数据库走 storage 快照、没有本地 OCR、不能拍照读图 —— 都是平台能力边界，
+> 不是坏了。要在真机上体验 SQLite 与 OCR，得按[第五节](#五平台差异能力边界不是-bug)打包 APP。
+> 在线版里的数据存在你浏览器的 localStorage，清一下缓存就是初始状态。
 
 ---
 
@@ -78,6 +85,9 @@ npm run build:h5        # 产物 dist/build/h5
 npm run build:mp-weixin # 产物 dist/build/mp-weixin
 npm run preview         # 真实渲染截图，产物 preview/screens/*.png（需本机 Chrome）
 npm run verify:backup   # 备份三段式端到端验证（导出 → 清空 → 导入）
+
+# 部署到子路径时（GitHub Pages 就是这样）要告诉构建产物资源前缀，否则 /assets/* 会 404
+UNI_H5_BASE=/interview-box/ npm run build:h5
 ```
 
 首次启动自动播种示例数据（4 个分类、10 个标签、18 道题），
@@ -235,6 +245,7 @@ acceptDraft({ editedText, overwrite })   ← 唯一写 reference_answer 的入�
 | `npm run build:mp-weixin` | 成功，`plus.sqlite` 未进包 |
 | `npm run verify:backup` | **35 项全通过**（导出 → 清空 → 覆盖恢复 → 合并恢复，含 5 条负例） |
 | 产物密钥扫描 | `dist/` 内无 `sk-` / `AKID` / `gh?_` / 私钥块，命中即 fail |
+| GitHub Pages | verify 全绿后自动部署到 <https://zhangfengyao01.github.io/interview-box/>（PR 只验不发布） |
 | 密钥泄漏检查 | 产物内无 secret / token 字样（客户端本就不存密钥） |
 | 视觉对照 | `npm run preview` 真实渲染 **13 屏**（设计稿 8 屏 + 5 个二级页），逐屏比对，全部图见上面的[界面一览](#界面一览) |
 
@@ -294,6 +305,9 @@ headless Chrome 有约 **504px 的最小视口**，直接 `--window-size=390,844
 5. **示例数据是 18 题**：设计稿上的 128 题 / 12 今日新增 / 92% 掌握率是示意值，
    首页数字全部来自真实统计，不写死。演示数据里今天还没学，所以复习页圆环是 0/20。
 6. **无账号与多端同步**：PRD 明确本地优先，同步不在本期范围。
+7. **在线预览是 H5 版**：走 storage 快照、没有本地 OCR、图片是临时路径（刷新后可能失效）。
+   它用来「点开就能看界面」，不是真机能力的证明 —— 真机差异见[第五节](#五平台差异能力边界不是-bug)。
+   另外换设备/换浏览器就是另一份数据，因为数据只存在你自己的 localStorage 里。
 
 ---
 

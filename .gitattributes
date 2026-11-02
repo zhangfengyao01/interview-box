@@ -4,3 +4,7 @@
 # 截图是二进制
 *.png binary
 *.jpg binary
+
+# 本地 OCR 的模型包与 wasm 内核也是二进制，别让 autocrlf 去动它们
+*.gz binary
+*.wasm.js binary

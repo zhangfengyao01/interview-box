@@ -1,0 +1,7 @@
+{
+  "dependencies": [
+    "com.google.mlkit:text-recognition-chinese:16.0.0",
+    "com.google.mlkit:text-recognition:16.0.1"
+  ],
+  "minSdkVersion": 21
+}

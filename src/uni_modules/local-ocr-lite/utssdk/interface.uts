@@ -1,0 +1,24 @@
+/** 文本块：带坐标，用于还原「题干 / 解析 / 标签」这类版面结构 */
+export type OcrBlock = {
+  text: string
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+export type RecognizeOptions = {
+  /** 图片本地路径（支持 plus 的 _doc / 临时路径） */
+  path: string
+  /** 语言提示，Android 固定用中文离线模型（本身覆盖中英混排），此字段仅作记录 */
+  languages?: Array<string>
+}
+
+export type RecognizeResult = {
+  success: boolean
+  text: string
+  blocks: Array<OcrBlock>
+  /** 毫秒 */
+  elapsedTime: number
+  message?: string
+}

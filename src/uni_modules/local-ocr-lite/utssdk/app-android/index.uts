@@ -1,0 +1,79 @@
+import Context from 'android.content.Context'
+import Uri from 'android.net.Uri'
+import File from 'java.io.File'
+import Exception from 'java.lang.Exception'
+import InputImage from 'com.google.mlkit.vision.common.InputImage'
+import TextRecognition from 'com.google.mlkit.vision.text.TextRecognition'
+import Text from 'com.google.mlkit.vision.text.Text'
+import TextRecognizer from 'com.google.mlkit.vision.text.TextRecognizer'
+import ChineseTextRecognizerOptions from 'com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions'
+
+import { OcrBlock, RecognizeOptions, RecognizeResult } from '../interface.uts'
+
+/**
+ * Android 实现：ML Kit 文字识别（中文离线模型）。
+ *
+ * 选它的理由：
+ *  - 模型随 APK 走（约 20MB），**完全离线**，不像云端 OCR 要把图片传出去；
+ *  - 中文/英文混排是同一套模型，面试题里的 `useEffect`、`HTTPS` 这类词不会被漏掉；
+ *  - ML Kit 自带版面信息（每块的 boundingBox），后面要按「题干/解析」切分时有据可依。
+ */
+export function isSupported(): boolean {
+  return true
+}
+
+export function recognize(options: RecognizeOptions): Promise<RecognizeResult> {
+  return new Promise<RecognizeResult>((resolve, reject) => {
+    const started = Date.now()
+    try {
+      const context: Context | null = UTSAndroid.getAppContext()
+      if (context == null) {
+        reject(new Error('拿不到应用上下文，无法识别'))
+        return
+      }
+
+      const file = new File(options.path)
+      if (!file.exists()) {
+        reject(new Error(`图片不存在：${options.path}`))
+        return
+      }
+
+      const image = InputImage.fromFilePath(context, Uri.fromFile(file))
+      const overlayOptions = new ChineseTextRecognizerOptions.Builder().build()
+      const recognizer: TextRecognizer = TextRecognition.getClient(overlayOptions)
+
+      recognizer
+        .process(image)
+        .addOnSuccessListener((result: Text) => {
+          const blocks: OcrBlock[] = []
+          const textBlocks = result.textBlocks
+          for (let i = 0; i < textBlocks.size; i++) {
+            // UTS 的 `number` 在 Kotlin 侧是 Number 抽象类型，List.get() 要 Int，必须显式转换
+            const block = textBlocks.get(i.toInt())
+            const box = block.boundingBox
+            blocks.push({
+              text: block.text,
+              left: box == null ? 0 : box.left,
+              top: box == null ? 0 : box.top,
+              width: box == null ? 0 : box.width(),
+              height: box == null ? 0 : box.height()
+            } as OcrBlock)
+          }
+          recognizer.close()
+          resolve({
+            success: true,
+            text: result.text,
+            blocks,
+            elapsedTime: Date.now() - started
+          } as RecognizeResult)
+        })
+        .addOnFailureListener((err: Exception) => {
+          recognizer.close()
+          const msg = err.message
+          reject(new Error(msg == null ? 'ML Kit 识别失败' : msg!))
+        })
+    } catch (err) {
+      reject(err as Error)
+    }
+  })
+}

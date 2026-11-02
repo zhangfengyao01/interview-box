@@ -168,8 +168,8 @@ const styleIndex = computed(() => {
 const localOcrText = computed(() => {
   const cap = ocrService.capabilities(settings)
   return cap.local.supported
-    ? `已检测到本地 OCR 插件（${cap.local.engine}）`
-    : '未安装 UTS 插件，图片识别不可用；可用「粘贴文本」替代'
+    ? `本机识别可用（${cap.local.engine}）`
+    : cap.local.reason || '当前环境没有本地识别能力'
 })
 
 const cloudConsentText = computed(() => {

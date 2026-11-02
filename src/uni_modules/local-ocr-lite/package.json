@@ -1,0 +1,29 @@
+{
+  "id": "local-ocr-lite",
+  "displayName": "本地 OCR（轻量）",
+  "version": "1.0.0",
+  "description": "离线文字识别：Android 用 ML Kit 中文离线模型（中英混排同一套模型）；iOS 尚未实现，会如实返回不支持。",
+  "keywords": ["ocr", "mlkit", "vision", "离线", "文字识别"],
+  "engines": {
+    "HBuilderX": "^3.9.0"
+  },
+  "dcloudext": {
+    "type": "uts-plugin"
+  },
+  "uni_modules": {
+    "dependencies": [],
+    "encrypt": [],
+    "platforms": {
+      "client": {
+        "Vue": {
+          "vue2": "y",
+          "vue3": "y"
+        },
+        "App": {
+          "app-vue": "y",
+          "app-nvue": "y"
+        }
+      }
+    }
+  }
+}

@@ -118,9 +118,12 @@ src/
 ├── repositories/     # 表级读写，唯一接触 DatabaseAdapter 的层
 ├── adapters/         # 平台差异全部关在这里
 │   ├── database/     # sqlite / storage 两套实现 + schema + 字段映射
-│   ├── ocr/          # local（UTS 插件）+ cloud（腾讯云走代理）
+│   ├── ocr/          # local（UTS 插件，仅 APP）+ web（tesseract.js WASM，仅 H5）+ cloud（走代理）
 │   ├── file/         # 图片落 `_doc/interview-box/images/`
 │   └── network/      # 只连自己的轻量代理
+├── uni_modules/
+│   └── local-ocr-lite/   # UTS 插件：interface.uts 定契约，app-android 用 ML Kit
+├── static/ocr/       # H5 专用：tesseract worker + core + chi_sim 模型（5.5MB，构建后从非 H5 产物剔除）
 ├── types/            # models / ocr / ai / db
 ├── utils/            # id、date、text、icons、event
 └── styles/           # 设计 token 与公共类
@@ -180,7 +183,7 @@ interface DatabaseAdapter {
 ### 4.1 OCR：本地优先，云端必须你点头
 
 ```
-拍照/选图 → 复制进 _doc（持久路径）→ 本地 UTS 插件识别
+拍照/选图 → 复制进 _doc（持久路径）→ 本地引擎识别
                                    ↓ 失败
                          已授权？ → 二次确认 → 云端代理识别
                                    ↓ 都失败
@@ -192,6 +195,45 @@ interface DatabaseAdapter {
   设置页可随时撤销；
 - 多图**顺序识别**，`OcrProgress` 逐图显示进度，一张失败不拖垮整批；
 - 识别结果页可直接改文字、按编号拆题、合并相邻题，原文留在 `source_assets`。
+
+本地引擎按平台各一套，都不是占位实现：
+
+| 平台 | 实现 | 说明 |
+| --- | --- | --- |
+| H5 | `tesseract.js` v7（WebAssembly），`adapters/ocr/web.ts` | worker + core + `chi_sim` 模型共 **5.5MB 随包放在 `src/static/ocr/`**，运行期不发任何外部请求；首次识别才动态加载，之后复用同一个 worker |
+| APP · Android | UTS 插件 `local-ocr-lite`，ML Kit 中文离线模型 | 模型随 APK 走，完全离线；中英混排同一套模型，`useEffect` / `HTTPS` 这类词不会漏 |
+| APP · iOS | **未实现**，`isSupported()` 如实返回 false | 原因见[已知限制](#七已知限制如实列出)第 2 条 |
+
+`src/static/ocr/` 是 H5 专用，但 uni 会把 `src/static` 原样拷进**每个平台**的产物
+（小程序主包只有 2MB），所以 `build:*` 后面统一跟一个 `scripts/trim-static.mjs`，
+把非 H5 产物里的 `static/ocr` 删掉 —— 构建日志里能看到「清理 mp-weixin/static/ocr（5.5MB）」。
+
+#### UTS 插件怎么调：`import`，不是 `requireNativePlugin`
+
+这是本次踩得最贵的一个坑。最早的 `adapters/ocr/local.ts` 用
+`uni.requireNativePlugin('local-ocr-lite')` 取插件，**永远拿到 undefined**，
+表现就是 `isSupported()` 恒 false、页面一直提示「识别暂不可用」——
+看着像插件没装上，其实是取法错了。
+
+官方给的区别很明确：原生语言插件（`nativeplugins/`，Java/OC 写的）才用 `uni.requireNativePlugin()`；
+**UTS 插件在编译期就翻成原生代码，JS 侧就是普通 `import`，而且参与摇树**。所以只有
+
+```ts
+// #ifdef APP-PLUS
+import * as UtsOcr from '@/uni_modules/local-ocr-lite'
+// #endif
+```
+
+才会让编译器把插件编进基座、并生成 JS 桥（产物里能看到
+`initUTSProxyFunction(... name:"isSupportedByJs")` 对应原生侧的 `isSupportedByJs()`）。
+整段 import 必须包在 `#ifdef APP-PLUS` 里：`utssdk/` 是原生源码，
+H5 / 小程序产物里不该出现（小程序也编不过）。
+
+配套的两件事：
+
+- 引了 UTS 插件后，`uni build -p app` 会要求 `@dcloudio/uni-uts-v1`，已在 `devDependencies` 里；
+- `utssdk/interface.uts` 是 UTS 语法，`vue-tsc` 不认，所以 `src/env.d.ts` 里手写了一份
+  `declare module '@/uni_modules/local-ocr-lite'`，**改接口时两边要一起改**。
 
 ### 4.2 AI：只产草稿，绝不覆盖已有答案
 
@@ -224,19 +266,20 @@ acceptDraft({ editedText, overwrite })   ← 唯一写 reference_answer 的入�
 | | APP（Android/iOS） | H5 | 微信小程序 |
 | --- | --- | --- | --- |
 | 数据库 | `plus.sqlite` | storage 快照 | storage 快照 |
-| 本地 OCR | UTS 插件（需自行导入） | 不支持 | 不支持 |
+| 本地 OCR | Android：ML Kit 中文离线模型（已本地编译通过，需自定义基座）；iOS：未实现 | tesseract.js WASM，**开箱可用** | 不支持 |
 | 图片持久化 | 复制进 `_doc` | 临时路径 | 临时路径 |
 | 云端 OCR / AI | 走自建代理 | 同 | 同 |
 
 微信小程序产物里 `sqlite.ts` 已被条件编译**整体剔除**（只剩提示文案字符串），
-不会因为引用 `plus` 而报错；OCR 走同一套接口，`isSupported()` 返回 false。
+不会因为引用 `plus` 而报错；OCR 走同一套接口，`isSupported()` 返回 false，
+`capabilities()` 把「为什么不可用」原样透给页面，而不是一句笼统的「暂不支持」。
 
 ---
 
 ## 六、验证记录
 
-下表每一项都在 CI 里自动跑（`.github/workflows/ci.yml`，push / PR 触发，Node 22），
-不是只在某台机器上手点过一次：
+下表前六项在 CI 里自动跑（`.github/workflows/ci.yml`，push / PR 触发，Node 22）；
+带 ※ 的四项是本机手工验证 —— UTS 原生编译需要 HBuilderX + Android SDK，CI 上装不了，如实标注。
 
 | 项 | 结果 |
 | --- | --- |
@@ -246,8 +289,10 @@ acceptDraft({ editedText, overwrite })   ← 唯一写 reference_answer 的入�
 | `npm run verify:backup` | **35 项全通过**（导出 → 清空 → 覆盖恢复 → 合并恢复，含 5 条负例） |
 | 产物密钥扫描 | `dist/` 内无 `sk-` / `AKID` / `gh?_` / 私钥块，命中即 fail |
 | GitHub Pages | verify 全绿后自动部署到 <https://zhangfengyao01.github.io/interview-box/>（PR 只验不发布） |
-| 启动兜底（H5） | 四种情形实测：正常不出现 / 资源 404 立即报出失败 URL / 脚本空转 8 秒超时报 / 慢加载跨过超时后自动撤回 |
-| 密钥泄漏检查 | 产物内无 secret / token 字样（客户端本就不存密钥） |
+| 启动兜底（H5）※ | 四种情形实测：正常不出现 / 资源 404 立即报出失败 URL / 脚本空转 8 秒超时报 / 慢加载跨过超时后自动撤回 |
+| UTS 插件本地编译 ※ | `cli compile app-android` **编译成功**，ML Kit 两包依赖经 Gradle 拉通，详见 6.4 |
+| APP 端构建 ※ | `uni build -p app` 成功，产物里已生成 `utssdk/app-android/src/index.kt`（133 行）与 iOS 的 `index.swift` |
+| H5 / 小程序无原生残留 ※ | 两个产物内都搜不到 `local-ocr-lite`；H5 侧 `static/ocr/` 三件套齐全 |
 | 视觉对照 | `npm run preview` 真实渲染 **13 屏**（设计稿 8 屏 + 5 个二级页），逐屏比对，全部图见上面的[界面一览](#界面一览) |
 
 ### 6.0 备份恢复验的是什么
@@ -312,15 +357,54 @@ H5 白屏是没法调试的：资源 404 时控制台之外什么都没有，用
 | 脚本空转 | 把入口 js 清成 0 字节 | 8 秒后亮出，文案是「8 秒内页面没有渲染出内容」 |
 | 慢加载 | 把入口改成 10 秒后再挂 | 第 8 秒先亮出、第 10 秒加载成功后**自动撤回** |
 
+### 6.4 UTS 插件怎么验证的（以及踩的三个坑）
+
+HBuilderX 自带一个 CLI，可以不打开 IDE 就编单个 uni_modules：
+
+```bash
+# 在 HBuilderX 安装目录下执行
+./cli.exe compile app-android \
+  --project "C:\Users\27538\Desktop\微信小程序\interview-box" \
+  --uni_module src/uni_modules/local-ocr-lite
+```
+
+带三方 Maven 依赖的插件（我们是 `com.google.mlkit:text-recognition-chinese`）**必须先配运行配置**，
+否则编译器没有 classpath，只会甩一句 `找不到名称"google"` —— 那是 UTS 的「已知问题 error18」，
+极易被误判成代码写错。三个配置项用 CLI 写进 `%APPDATA%\HBuilder X\user\settings.json`：
+
+```bash
+./cli.exe config set --key uts-development-android.sdkDir     --value "C:\Users\27538\AppData\Local\Android\sdk"
+./cli.exe config set --key uts-development-android.javaHome   --value "C:\Program Files\Android\Android Studio\jbr"
+./cli.exe config set --key uts-development-android.gradleHome --value "...\gradle-8.9\bin\gradle.bat"
+```
+
+坑逐个说清楚：
+
+1. **`找不到名称"google"`（error18）不是语法错**，是依赖没解析。要装 HBuilderX 的
+   「uts Android 运行扩展」，并配齐 SDK / JDK / Gradle。Gradle 必须 **7.5 ≤ x < 9**
+   （内置 Gradle 插件版本是 AGP 8.2.2），JDK 要 17，SDK 的 `build-tools` ≥ 30、`platforms` ≥ android-30。
+2. **`参数类型不匹配：实际类型为 'Number'，预期 'Int'`（error17）**：UTS 的 `number` 在 Kotlin 侧是
+   `kotlin.Number` 抽象类型，`List.get()` 要 `Int`，所以 `textBlocks.get(i)` 必须写成
+   **`textBlocks.get(i.toInt())`**。同理，调系统/三方 SDK 且对方签名写死 `Int` 的地方都要转。
+3. **依赖下载会走 `maven.aliyun.com` 镜像**（插件模板里写死的 public + google 仓），
+   首次约 3 分钟；之后命中缓存，19 秒编完。
+
+编译通过的判据是日志末行 `项目 interview-box（模块 local-ocr-lite）编译成功。`，
+产物落在 `unpackage/uts/...` 与 APP 构建目录的 `uni_modules/local-ocr-lite/utssdk/app-android/src/index.kt`。
+
 ---
 
 ## 七、已知限制（如实列出）
 
 1. **真机未验证**：`plus.sqlite` 与 UTS OCR 需要 Android/iOS 打包环境。本仓库完成的是
-   类型检查 + H5 / 小程序编译 + H5 运行逻辑，**没有在真机上跑过**。
-   备份恢复的端到端验证（`npm run verify:backup`）跑的是 storage 引擎，`plus.sqlite` 未覆盖。
-2. **`local-ocr-lite` 未内置**：UTS 插件需从插件市场导入 `nativeplugins/` 并打自定义基座；
-   未安装时 `capabilities()` 如实报告「未安装 UTS 插件」，页面提示改用粘贴文本。
+   类型检查 + H5 / 小程序编译 + **UTS 插件本地编译（Kotlin 编译通过）** + H5 运行逻辑，
+   **没有在真机上跑过**，所以「ML Kit 在真机上识别得准不准」这件事这里没有结论。
+   `plus.sqlite` 与真机 OCR 都需要先打自定义调试基座（普通标准基座里没有插件原生代码）。
+2. **iOS 端 OCR 未实现**：`utssdk/app-ios/index.uts` 明确返回「不支持」。
+   UTS 的 iOS 侧只能在 macOS + Xcode 里编译验证，本机是 Windows ——
+   写个没编译过的 Vision 版本比没有更糟（用户会以为识别失败是图片问题）。
+   接的时候把那个文件换成 `VNRecognizeTextRequest`（`recognitionLanguages = ["zh-Hans","en-US"]`），
+   接口不用动。
 3. **云端代理未提供**：只有 `adapters/network` 与设置页的端点配置，
    服务端（腾讯云 OCR / 大模型转发）需自行实现，约定见 `services/ocr`、`services/ai`。
 4. **插画是 CSS/图标复现**：设计稿的手绘插画（banner 纸张、日历、头像）用渐变块 + 图标重画，
@@ -328,7 +412,8 @@ H5 白屏是没法调试的：资源 404 时控制台之外什么都没有，用
 5. **示例数据是 18 题**：设计稿上的 128 题 / 12 今日新增 / 92% 掌握率是示意值，
    首页数字全部来自真实统计，不写死。演示数据里今天还没学，所以复习页圆环是 0/20。
 6. **无账号与多端同步**：PRD 明确本地优先，同步不在本期范围。
-7. **在线预览是 H5 版**：走 storage 快照、没有本地 OCR、图片是临时路径（刷新后可能失效）。
+7. **在线预览是 H5 版**：走 storage 快照，图片是临时路径（刷新后可能失效）。
+   但它**有本地 OCR**（tesseract.js WASM），不需要联网、不需要代理，可以直接传张试题截图试。
    它用来「点开就能看界面」，不是真机能力的证明 —— 真机差异见[第五节](#五平台差异能力边界不是-bug)。
    另外换设备/换浏览器就是另一份数据，因为数据只存在你自己的 localStorage 里。
 

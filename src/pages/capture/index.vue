@@ -163,7 +163,8 @@ const ocrNotice = computed(() => {
   const local = caps.value.local
   const cloud = caps.value.cloud
   if (!local.supported && !cloud.supported) {
-    return '当前环境没有本地 OCR 插件，也没配置云端代理。可以先用「粘贴文本」或手动录入；装上 UTS 插件并做自定义基座后这里会自动可用。'
+    // 把「为什么不可用」原样透出去，比一句笼统的「暂不支持」有用
+    return `${local.reason || '当前环境没有本地 OCR'}，也没配置云端代理。可以先用「粘贴文本」或手动录入。`
   }
   if (!local.supported && cloud.supported) {
     return '本地 OCR 不可用，将走云端识别：点击开始前会先确认是否上传图片。'
@@ -249,8 +250,7 @@ async function startImage(): Promise<void> {
   if (!localOk && !cloudOk) {
     uni.showModal({
       title: '识别暂不可用',
-      content:
-        '当前环境既没有本地 OCR 插件，也没有配置云端代理。可以先切到「粘贴文本」录入，或直接手动添加题目。',
+      content: `${caps.value.local.reason || '当前环境没有本地 OCR'}，也没有配置云端代理。可以先切到「粘贴文本」录入，或直接手动添加题目。`,
       confirmText: '去粘贴',
       cancelText: '知道了',
       success: (r) => {

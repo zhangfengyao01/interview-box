@@ -1,12 +1,16 @@
-import type { CloudOCRConsent, OCRCapabilities, OCRQuality, OCRResult } from '@/types/ocr'
+import type { CloudOCRConsent, OCRAdapter, OCRCapabilities, OCRQuality, OCRResult } from '@/types/ocr'
 import { localOCR } from '@/adapters/ocr/local'
 import { cloudOCRFor, type CloudOCRAdapter } from '@/adapters/ocr/cloud'
+// H5 专用：tesseract.js 只能在浏览器里跑，小程序端必须整段编掉，不能进包
+// #ifdef H5
+import { webOCR } from '@/adapters/ocr/web'
+// #endif
 
 /**
  * OCR 业务入口。页面只认这里，不直接碰插件、不直接发 HTTP。
  *
  * 编排规则（对应 PRD「本地优先，云端兜底」）：
- *  1. 本地引擎可用 → 先用本地；
+ *  1. 本地引擎可用 → 先用本地（APP 是原生插件，H5 是 WASM 引擎）；
  *  2. 本地不可用/失败 → 如果用户**已明确同意**且配置了代理 → 云端；
  *  3. 都不行 → 抛出可读错误，页面引导改用「粘贴文本 / 手动录入」，链路不中断。
  */
@@ -18,6 +22,19 @@ export type OCRQualityLevel = 'good' | 'check' | 'poor'
 export interface QualityHint {
   level: OCRQualityLevel
   message: string
+}
+
+/**
+ * 当前环境下可用的本地引擎，按优先级排列：原生（APP）优先，其次是浏览器 WASM。
+ * 小程序端两个都不在，返回空数组 —— 这是能力边界，不是故障。
+ */
+function localAdapters(): OCRAdapter[] {
+  const list: OCRAdapter[] = []
+  if (localOCR.isSupported()) list.push(localOCR)
+  // #ifdef H5
+  if (webOCR.isSupported()) list.push(webOCR)
+  // #endif
+  return list
 }
 
 /** 质量提示：由文本特征推断，**不是**模型置信度，UI 文案不要写成「置信度」 */
@@ -58,13 +75,16 @@ export const ocrService = {
   },
 
   capabilities(settings: { cloudOcrEnabled: boolean; cloudOcrEndpoint: string }): OCRCapabilities {
-    const localSupported = localOCR.isSupported()
+    const locals = localAdapters()
+    const preferred = locals[0]
     const cloudSupported = settings.cloudOcrEnabled && !!settings.cloudOcrEndpoint
     return {
       local: {
-        supported: localSupported,
-        engine: localOCR.engine,
-        reason: localSupported ? undefined : '微信小程序 / H5 / 未装 UTS 插件时不支持'
+        supported: locals.length > 0,
+        engine: preferred ? preferred.engine : 'none',
+        reason: preferred
+          ? undefined
+          : '小程序没有本地 OCR；浏览器端需要 WebAssembly SIMD（新版 Chrome / Edge / Safari）'
       },
       cloud: {
         supported: cloudSupported,
@@ -113,16 +133,16 @@ export const ocrService = {
   ): Promise<OCRResult> {
     const errors: string[] = []
 
-    if (localOCR.isSupported()) {
+    // 本地引擎按优先级逐个试：APP 是原生插件，H5 是 WASM，两边都失败才往下走
+    for (const adapter of localAdapters()) {
       try {
-        const result = await localOCR.recognize(imagePath)
+        const result = await adapter.recognize(imagePath)
         return this.withQuality(result)
       } catch (err) {
-        errors.push(`本地识别失败：${(err as { message?: string })?.message || String(err)}`)
+        errors.push(`本地识别失败（${adapter.engine}）：${(err as { message?: string })?.message || String(err)}`)
       }
-    } else {
-      errors.push('本地 OCR 不可用')
     }
+    if (!errors.length) errors.push('当前环境没有可用的本地 OCR 引擎')
 
     const cloudAllowed = options.allowCloud !== false
     const cloudReady = options.settings.cloudOcrEnabled && !!options.settings.cloudOcrEndpoint

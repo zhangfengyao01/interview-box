@@ -1,0 +1,12 @@
+import { RecognizeOptions, RecognizeResult } from '../interface.uts'
+
+/** 微信小程序没有本地 OCR 能力，如实返回不支持，由上层引导改用「粘贴文本」 */
+export function isSupported(): boolean {
+  return false
+}
+
+export function recognize(options: RecognizeOptions): Promise<RecognizeResult> {
+  return new Promise<RecognizeResult>((resolve, reject) => {
+    reject(new Error('微信小程序不支持本地 OCR'))
+  })
+}

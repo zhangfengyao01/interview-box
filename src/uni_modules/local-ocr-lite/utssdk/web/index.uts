@@ -1,0 +1,12 @@
+import { RecognizeOptions, RecognizeResult } from '../interface.uts'
+
+/** H5 走的是 tesseract.js（见 src/adapters/ocr/web.ts），不经过这个插件 */
+export function isSupported(): boolean {
+  return false
+}
+
+export function recognize(options: RecognizeOptions): Promise<RecognizeResult> {
+  return new Promise<RecognizeResult>((resolve, reject) => {
+    reject(new Error('local-ocr-lite 只在 App 端可用，H5 请使用 web 本地引擎'))
+  })
+}

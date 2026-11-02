@@ -1,0 +1,21 @@
+import { RecognizeOptions, RecognizeResult } from '../interface.uts'
+
+/**
+ * iOS 实现：**尚未实现**，如实返回不支持。
+ *
+ * 为什么不先塞一个「看起来能用」的 Vision 版本：
+ *  - UTS 的 iOS 侧只能在 macOS + Xcode 里编译验证，本机是 Windows，写了也编不过、改不了错；
+ *  - 未经验证的 OCR 代码比没有更糟：用户会以为识别失败是图片问题，而不是功能没做完。
+ *
+ * 想做 iOS 的话，这里换成 `Vision.VNRecognizeTextRequest` + `recognitionLanguages = ["zh-Hans","en-US"]`
+ * 即可，接口保持不变，上层不用动。
+ */
+export function isSupported(): boolean {
+  return false
+}
+
+export function recognize(options: RecognizeOptions): Promise<RecognizeResult> {
+  return new Promise<RecognizeResult>((resolve, reject) => {
+    reject(new Error('iOS 端本地 OCR 尚未实现，请改用「粘贴文本」或配置云端代理'))
+  })
+}

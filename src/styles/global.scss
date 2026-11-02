@@ -1,0 +1,176 @@
+/**
+ * 全局样式与设计令牌。
+ *
+ * 为什么用 CSS 变量而不是 SCSS 变量：运行时可覆盖（将来做深色模式只需要改
+ * `page[data-theme=dark]` 上的变量，不用重新编译），而且 rpx 换算在运行时也能生效。
+ */
+/* ============ 设计令牌（与设计稿一致） ============ */
+page {
+  --primary: #5b50f5;
+  --primary-deep: #4a3fe0;
+  --primary-soft: #eaebfd;
+  --primary-tint: #f4f3ff;
+  --grad-from: #5b50f5;
+  --grad-to: #7b6df8;
+
+  --text: #171a2c;
+  --text-body: #3c4157;
+  --text-sub: #8a8fa3;
+  --text-faint: #a9aec2;
+
+  --border: #ededf5;
+  --line: #efeff5;
+
+  --bg-page: #f5f5fe;
+  --bg-soft: #f8f8fd;
+  --bg-seg: #f2f2f8;
+
+  --green: #16a34a;
+  --green-soft: #e9f8ef;
+  --green-dot: #22c55e;
+  --amber: #f59e0b;
+
+  --radius-card: 32rpx;
+  --radius-lg: 40rpx;
+
+  background-color: var(--bg-page);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue',
+    'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+view,
+text,
+scroll-view,
+input,
+textarea {
+  box-sizing: border-box;
+}
+
+/* ============ 通用布局 ============ */
+.screen {
+  min-height: 100vh;
+  background-color: var(--bg-page);
+  padding-bottom: 40rpx;
+}
+
+.screen--tabbar {
+  padding-bottom: calc(180rpx + constant(safe-area-inset-bottom));
+  padding-bottom: calc(180rpx + env(safe-area-inset-bottom));
+}
+
+.pad {
+  padding-left: 32rpx;
+  padding-right: 32rpx;
+}
+
+.row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.between {
+  justify-content: space-between;
+}
+
+.center {
+  justify-content: center;
+}
+
+.col {
+  display: flex;
+  flex-direction: column;
+}
+
+.card {
+  background-color: #ffffff;
+  border-radius: var(--radius-card);
+  box-shadow: 0 10rpx 30rpx rgba(70, 66, 140, 0.06);
+}
+
+.divider {
+  height: 1px;
+  background-color: var(--line);
+}
+
+/* ============ 文本层级 ============ */
+.t-h1 {
+  font-size: 50rpx;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.t-section {
+  font-size: 29rpx;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.t-title {
+  font-size: 26rpx;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.t-body {
+  font-size: 25rpx;
+  color: var(--text-body);
+  line-height: 1.65;
+}
+
+.t-sub {
+  font-size: 22rpx;
+  color: var(--text-sub);
+}
+
+.t-mini {
+  font-size: 20rpx;
+  color: var(--text-sub);
+}
+
+/* ============ 按钮 ============ */
+.btn-primary {
+  height: 100rpx;
+  border-radius: 50rpx;
+  background-image: linear-gradient(90deg, var(--grad-from), var(--grad-to));
+  color: #ffffff;
+  font-size: 31rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-soft {
+  height: 96rpx;
+  border-radius: 48rpx;
+  background-color: var(--primary-soft);
+  color: var(--primary);
+  font-size: 27rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-ghost {
+  height: 92rpx;
+  border-radius: 46rpx;
+  border: 1px solid #e0e0ee;
+  color: var(--text-body);
+  font-size: 27rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tap {
+  transition: opacity 0.15s ease;
+}
+
+.tap:active {
+  opacity: 0.65;
+}

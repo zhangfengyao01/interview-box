@@ -246,6 +246,7 @@ acceptDraft({ editedText, overwrite })   ← 唯一写 reference_answer 的入�
 | `npm run verify:backup` | **35 项全通过**（导出 → 清空 → 覆盖恢复 → 合并恢复，含 5 条负例） |
 | 产物密钥扫描 | `dist/` 内无 `sk-` / `AKID` / `gh?_` / 私钥块，命中即 fail |
 | GitHub Pages | verify 全绿后自动部署到 <https://zhangfengyao01.github.io/interview-box/>（PR 只验不发布） |
+| 启动兜底（H5） | 入口脚本 404 / 脚本空转两种情况都实测会亮出提示；正常启动时不出现 |
 | 密钥泄漏检查 | 产物内无 secret / token 字样（客户端本就不存密钥） |
 | 视觉对照 | `npm run preview` 真实渲染 **13 屏**（设计稿 8 屏 + 5 个二级页），逐屏比对，全部图见上面的[界面一览](#界面一览) |
 
@@ -288,6 +289,19 @@ headless Chrome 有约 **504px 的最小视口**，直接 `--window-size=390,844
 `390px` 的 iframe 承载页面、外层窗口开成 390×N，再按 2 倍图截图。
 详情页/识别结果页依赖运行时数据（演示库每次冷启动都会重新播种、id 是随机 uuid），
 所以探针页要么先启动应用读出 id 再 `location.hash` 跳转，要么先把草稿写进 storage 再跳。
+
+### 6.3 启动兜底为什么写在 index.html
+
+H5 白屏是没法调试的：资源 404 时控制台之外什么都没有，用户只会以为"这站打不开"。
+所以兜底放在**入口 HTML 里、入口脚本之前**，不依赖任何构建产物能不能加载：
+
+1. **资源级错误**：`window.addEventListener('error', fn, true)` 用捕获阶段才接得到
+   `script` / `link` 的加载失败（这类事件不冒泡），能直接报出是哪个 URL 没了；
+2. **静默失败**：8 秒还没长出内容就报超时（`MutationObserver` 盯着 `#app`）；
+3. 一旦 `#app` 真的长出内容，立刻撤回兜底 —— 慢网络下"先报错、后加载出来"也算正常；
+4. 文案里明说**刷新不会丢数据**，因为题库存在本机 localStorage，绝不能在兜底里提供"清缓存"这种操作。
+
+它只覆盖 H5；小程序端由微信自己的错误页接管，APP 端走 `plus` 的启动流程。
 
 ---
 

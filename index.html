@@ -15,9 +15,210 @@
           '" />'
       )
     </script>
+    <style>
+      /* 启动兜底：资源 404 / 脚本崩了的时候，至少给一句话和一个按钮，别留一块纯白。
+         这里不能用 rpx（uni 还没起来），全部用 px 写死。 */
+      html[data-boot-failed] body {
+        margin: 0;
+      }
+      #boot-fallback {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        padding: 24px;
+        box-sizing: border-box;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        background: #f5f5fe;
+        color: #171a2c;
+        font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      #boot-fallback .bf-icon {
+        width: 72px;
+        height: 72px;
+        border-radius: 24px;
+        background: linear-gradient(140deg, #6f66f7, #5b50f5);
+        box-shadow: 0 12px 28px rgba(91, 80, 245, 0.28);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 34px;
+        line-height: 1;
+        color: #fff;
+        margin-bottom: 22px;
+      }
+      #boot-fallback .bf-title {
+        font-size: 19px;
+        font-weight: 700;
+        margin: 0 0 10px;
+      }
+      #boot-fallback .bf-desc {
+        font-size: 13px;
+        line-height: 1.7;
+        color: #6b7086;
+        margin: 0 0 18px;
+        max-width: 300px;
+      }
+      #boot-fallback .bf-detail {
+        max-width: 300px;
+        margin: 0 0 22px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: #ecebfa;
+        color: #6b7086;
+        font-size: 11px;
+        line-height: 1.6;
+        word-break: break-all;
+        text-align: left;
+      }
+      #boot-fallback .bf-btn {
+        appearance: none;
+        border: 0;
+        height: 46px;
+        padding: 0 34px;
+        border-radius: 23px;
+        background: #5b50f5;
+        color: #fff;
+        font-size: 15px;
+        font-weight: 600;
+        font-family: inherit;
+        box-shadow: 0 8px 20px rgba(91, 80, 245, 0.3);
+      }
+      #boot-fallback .bf-btn:active {
+        transform: translateY(1px);
+        opacity: 0.9;
+      }
+      #boot-fallback .bf-hint {
+        margin: 16px 0 0;
+        font-size: 11px;
+        color: #9aa0b4;
+        max-width: 300px;
+        line-height: 1.6;
+      }
+    </style>
   </head>
   <body>
     <div id="app"></div>
+
+    <!-- 兜底界面：默认 display:none，只有看门狗判定启动失败才亮出来 -->
+    <div id="boot-fallback" role="alert" aria-live="assertive">
+      <div class="bf-icon">!</div>
+      <p class="bf-title">页面没能加载出来</p>
+      <p class="bf-desc">界面资源没取到或者脚本出错了。多数情况刷新一下就好，题库数据存在本机浏览器里，刷新不会丢。</p>
+      <p class="bf-detail" id="bf-detail"></p>
+      <button class="bf-btn" id="bf-reload" type="button">重新加载</button>
+      <p class="bf-hint">如果反复失败：确认网络正常、换个浏览器再试，或者用最新版 Chrome / Safari 打开。</p>
+    </div>
+
+    <noscript>
+      <div style="padding: 24px; font-family: sans-serif; line-height: 1.8">
+        这个页面需要 JavaScript 才能运行，请允许 JavaScript 后刷新。
+      </div>
+    </noscript>
+
+    <!--
+      启动看门狗。刻意放在入口脚本之前，这样连 /assets/index-*.js 404 都能第一时间接住。
+      判定失败的两条路：
+        1) 资源级的 error（script/link 加载不到）—— 立刻报，不用等；
+        2) 8 秒内 #app 还是空的 —— 兜网络极慢或脚本静默挂掉。
+      一旦 uni 真挂载出内容，立刻撤掉兜底（慢网下先报错、后加载出来也算正常）。
+    -->
+    <script>
+      ;(function () {
+        var TIMEOUT = 8000
+        var app = document.getElementById('app')
+        var box = document.getElementById('boot-fallback')
+        var detail = document.getElementById('bf-detail')
+        var reloadBtn = document.getElementById('bf-reload')
+
+        var booted = false
+        var shown = false
+        var firstProblem = ''
+
+        function appMounted() {
+          return !!(app && (app.children.length > 0 || app.innerHTML.trim() !== ''))
+        }
+
+        function reveal(reason) {
+          if (booted || shown) return
+          shown = true
+          if (reason) firstProblem = reason
+          if (appMounted()) return
+
+          var parts = []
+          if (firstProblem) parts.push(firstProblem)
+          if (navigator.onLine === false) parts.push('当前设备处于离线状态')
+          detail.textContent = parts.join(' · ') || '入口资源没有返回'
+          detail.style.display = 'block'
+
+          box.style.display = 'flex'
+          document.documentElement.setAttribute('data-boot-failed', '1')
+          // 半渲染的界面留在后面反而更吓人，先藏掉
+          if (app) app.style.display = 'none'
+        }
+
+        function markBooted() {
+          if (booted) return
+          booted = true
+          if (app) app.style.display = ''
+          if (shown) {
+            shown = false
+            box.style.display = 'none'
+            document.documentElement.removeAttribute('data-boot-failed')
+          }
+        }
+
+        // 捕获阶段的 error 才能接到资源加载失败（这类事件不冒泡）
+        window.addEventListener(
+          'error',
+          function (e) {
+            var t = e.target
+            if (t && t.tagName === 'SCRIPT') {
+              reveal('入口脚本加载失败：' + (t.src || '未知地址'))
+            } else if (t && t.tagName === 'LINK') {
+              reveal('样式文件加载失败：' + (t.href || '未知地址'))
+            } else if (e.message) {
+              reveal('脚本报错：' + e.message)
+            }
+          },
+          true
+        )
+
+        window.addEventListener('unhandledrejection', function (e) {
+          var r = e && e.reason
+          reveal('未处理的异常：' + ((r && (r.message || r)) || '未知'))
+        })
+
+        if (window.MutationObserver && app) {
+          var mo = new MutationObserver(function () {
+            if (appMounted()) {
+              mo.disconnect()
+              markBooted()
+            }
+          })
+          mo.observe(app, { childList: true, subtree: true })
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+          if (appMounted()) markBooted()
+        })
+
+        setTimeout(function () {
+          if (!booted && !appMounted()) reveal('8 秒内页面没有渲染出内容')
+        }, TIMEOUT)
+
+        reloadBtn.addEventListener('click', function () {
+          reloadBtn.disabled = true
+          reloadBtn.textContent = '正在重新加载…'
+          location.reload()
+        })
+      })()
+    </script>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

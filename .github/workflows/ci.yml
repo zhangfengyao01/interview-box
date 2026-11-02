@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# 只读权限就够：这里不发布、不写库
+permissions:
+  contents: read
+
+# 同一分支连续推送时，取消上一次还没跑完的任务
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: type-check · backup-e2e · build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 准备 Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # .npmrc 里开着 ignore-scripts：esbuild 的平台二进制是 optionalDependencies
+      # （@esbuild/linux-x64 已在 lock 里），JS API 直接 require 它，不依赖 postinstall。
+      - name: 安装依赖
+        run: npm ci --no-audit --fund=false
+
+      # strict 模式，覆盖 13 个页面与全部 .vue
+      - name: 类型检查
+        run: npm run type-check
+
+      # 导出 → 5 条负例 → 清空 → 覆盖恢复 → 合并恢复，35 项断言
+      - name: 备份恢复端到端
+        run: npm run verify:backup
+
+      - name: 构建 H5
+        run: npm run build:h5
+
+      - name: 构建微信小程序
+        run: npm run build:mp-weixin
+
+      # 客户端本就存不下密钥，但还是堵一下「不小心把密钥写进源码」这条路
+      - name: 扫描产物中的疑似密钥
+        run: |
+          if grep -rnE '(sk-[A-Za-z0-9]{20,}|AKID[A-Za-z0-9]{16,}|gh[pous]_[A-Za-z0-9]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)' dist; then
+            echo "::error::产物里出现了疑似密钥，请检查"
+            exit 1
+          fi
+          echo "产物中未发现疑似密钥"
+
+      - name: 上传 H5 产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-h5
+          path: dist/build/h5
+          retention-days: 7
+          if-no-files-found: error

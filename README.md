@@ -1,5 +1,6 @@
 # 面试题匣 · 本地优先面试题库
 
+[![CI](https://github.com/zhangfengyao01/interview-box/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/zhangfengyao01/interview-box/actions/workflows/ci.yml)
 ![uni-app](https://img.shields.io/badge/uni--app-Vue3%20%2B%20Vite-5B50F5)
 ![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6)
 ![SQLite](https://img.shields.io/badge/SQLite-plus.sqlite-003B57)
@@ -224,12 +225,16 @@ acceptDraft({ editedText, overwrite })   ← 唯一写 reference_answer 的入�
 
 ## 六、验证记录
 
+下表每一项都在 CI 里自动跑（`.github/workflows/ci.yml`，push / PR 触发，Node 22），
+不是只在某台机器上手点过一次：
+
 | 项 | 结果 |
 | --- | --- |
 | `npm run type-check` | **0 error**（strict，覆盖 13 个页面与全部 .vue） |
 | `npm run build:h5` | 成功，按路由分包 |
 | `npm run build:mp-weixin` | 成功，`plus.sqlite` 未进包 |
 | `npm run verify:backup` | **35 项全通过**（导出 → 清空 → 覆盖恢复 → 合并恢复，含 5 条负例） |
+| 产物密钥扫描 | `dist/` 内无 `sk-` / `AKID` / `gh?_` / 私钥块，命中即 fail |
 | 密钥泄漏检查 | 产物内无 secret / token 字样（客户端本就不存密钥） |
 | 视觉对照 | `npm run preview` 真实渲染 **13 屏**（设计稿 8 屏 + 5 个二级页），逐屏比对，全部图见上面的[界面一览](#界面一览) |
 

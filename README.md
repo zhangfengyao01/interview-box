@@ -17,43 +17,49 @@
 
 下面每一张都是**真实渲染的截图**，不是效果图：`npm run build:h5` 出包 → 起静态服务 →
 用固定 390px 宽的 iframe 承载页面 → 2 倍图截图（为什么必须走 iframe 见 [6.2](#62-截图为什么必须走-iframe)）。
-源码在 `preview/screens.sh`，随时可自己重跑一遍。
+源码在 `preview/screens.sh`，随时可以自己重跑一遍。
 
-### 设计稿的 8 屏
+<img src="preview/ui-8-screens.png" width="900" alt="设计稿 8 屏的实现">
 
-<img src="preview/ui-8-screens.png" width="900" alt="设计稿 8 屏实现">
-
-<table>
-  <tr>
-    <td align="center"><img src="preview/screens/01-home.png" width="180" alt="首页"><br><sub><b>01</b> 首页 · 四入口 + 真实统计</sub></td>
-    <td align="center"><img src="preview/screens/02-capture.png" width="180" alt="识别面试题"><br><sub><b>02</b> 识别 · 图片 / 粘贴文本</sub></td>
-    <td align="center"><img src="preview/screens/03-library.png" width="180" alt="我的题库"><br><sub><b>03</b> 题库 · 一个白容器四行</sub></td>
-    <td align="center"><img src="preview/screens/04-review.png" width="180" alt="学习与复习"><br><sub><b>04</b> 复习 · 今日进度环</sub></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="preview/screens/05-plan.png" width="180" alt="复习计划"><br><sub><b>05</b> 计划 · 1/3/7 天到期表</sub></td>
-    <td align="center"><img src="preview/screens/06-profile.png" width="180" alt="更多"><br><sub><b>06</b> 更多 · 备份 / 清空 / 设置</sub></td>
-    <td align="center"><img src="preview/screens/07-detail.png" width="180" alt="题目详情"><br><sub><b>07</b> 详情 · 参考回答 + 笔记</sub></td>
-    <td align="center"><img src="preview/screens/08-ocr-result.png" width="180" alt="识别结果校对"><br><sub><b>08</b> 识别结果 · 按编号拆题</sub></td>
-  </tr>
-</table>
-
-### 设计稿没画、但内部要验收的 5 屏
+<sub>↑ 设计稿指定的 8 屏（<code>01</code>–<code>08</code>）。</sub>
 
 <img src="preview/ui-extra-pages.png" width="900" alt="补充验收的 5 个二级页">
 
-<table>
-  <tr>
-    <td align="center"><img src="preview/screens/09-edit.png" width="150" alt="编辑题目"><br><sub><b>09</b> 编辑题目 · AI 草稿只作草稿</sub></td>
-    <td align="center"><img src="preview/screens/10-study.png" width="150" alt="复习会话"><br><sub><b>10</b> 复习会话 · 先答后看</sub></td>
-    <td align="center"><img src="preview/screens/11-batch-save.png" width="150" alt="确认入库"><br><sub><b>11</b> 确认入库 · 逐题打标</sub></td>
-    <td align="center"><img src="preview/screens/12-backup.png" width="150" alt="备份与恢复"><br><sub><b>12</b> 备份恢复 · 导出 / 覆盖 / 合并</sub></td>
-    <td align="center"><img src="preview/screens/13-settings.png" width="150" alt="设置"><br><sub><b>13</b> 设置 · 引擎与授权状态</sub></td>
-  </tr>
-</table>
+<sub>↑ 设计稿没画、但内部要验收的 5 个二级页（<code>09</code>–<code>13</code>）：编辑题目、复习会话、确认入库、备份恢复、设置。</sub>
 
 > 截图为演示库初始状态：共 18 题、今天还没学，所以复习环是 `0 / 20`。
 > 这些数字全部来自真实统计，没有写死（见 [已知限制](#七已知限制如实列出) 第 5 条）。
+
+<details>
+<summary>13 屏单张（点击展开，可按编号对照上面两张合集）</summary>
+
+<br>
+
+<table>
+  <tr>
+    <td align="center" valign="top"><img src="preview/screens/01-home.png" width="170" alt="首页 · 四入口 + 真实统计"><br><sub><b>01</b> 首页 · 四入口 + 真实统计</sub></td>
+    <td align="center" valign="top"><img src="preview/screens/02-capture.png" width="170" alt="识别 · 图片 / 粘贴文本"><br><sub><b>02</b> 识别 · 图片 / 粘贴文本</sub></td>
+    <td align="center" valign="top"><img src="preview/screens/03-library.png" width="170" alt="题库 · 一个白容器四行"><br><sub><b>03</b> 题库 · 一个白容器四行</sub></td>
+    <td align="center" valign="top"><img src="preview/screens/04-review.png" width="170" alt="复习 · 今日进度环"><br><sub><b>04</b> 复习 · 今日进度环</sub></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="preview/screens/05-plan.png" width="170" alt="计划 · 1/3/7 天到期表"><br><sub><b>05</b> 计划 · 1/3/7 天到期表</sub></td>
+    <td align="center" valign="top"><img src="preview/screens/06-profile.png" width="170" alt="更多 · 备份 / 清空 / 设置"><br><sub><b>06</b> 更多 · 备份 / 清空 / 设置</sub></td>
+    <td align="center" valign="top"><img src="preview/screens/07-detail.png" width="170" alt="详情 · 参考回答 + 笔记"><br><sub><b>07</b> 详情 · 参考回答 + 笔记</sub></td>
+    <td align="center" valign="top"><img src="preview/screens/08-ocr-result.png" width="170" alt="识别结果 · 按编号拆题"><br><sub><b>08</b> 识别结果 · 按编号拆题</sub></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="preview/screens/09-edit.png" width="170" alt="编辑题目 · AI 草稿只作草稿"><br><sub><b>09</b> 编辑题目 · AI 草稿只作草稿</sub></td>
+    <td align="center" valign="top"><img src="preview/screens/10-study.png" width="170" alt="复习会话 · 先答后看"><br><sub><b>10</b> 复习会话 · 先答后看</sub></td>
+    <td align="center" valign="top"><img src="preview/screens/11-batch-save.png" width="170" alt="确认入库 · 逐题打标"><br><sub><b>11</b> 确认入库 · 逐题打标</sub></td>
+    <td align="center" valign="top"><img src="preview/screens/12-backup.png" width="170" alt="备份恢复 · 导出 / 覆盖 / 合并"><br><sub><b>12</b> 备份恢复 · 导出 / 覆盖 / 合并</sub></td>
+  </tr>
+  <tr>
+    <td align="center" valign="top"><img src="preview/screens/13-settings.png" width="170" alt="设置 · 引擎与授权状态"><br><sub><b>13</b> 设置 · 引擎与授权状态</sub></td>
+  </tr>
+</table>
+
+</details>
 
 ---
 

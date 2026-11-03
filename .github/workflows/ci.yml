@@ -85,6 +85,32 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
+  # AI 代理是独立进程、独立语言栈，单独开一个 job：
+  # 与 Node 那条链并行跑，也不会因为 Python 依赖装不上把前端构建带崩。
+  # 自测用桩服务模拟上游，不联网、不需要真 Key —— 所以放在公开 CI 里也不烧额度。
+  proxy:
+    name: ai-proxy · selftest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v5
+
+      - name: 准备 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: proxy/requirements.txt
+
+      - name: 安装代理依赖
+        run: pip install -r proxy/requirements.txt
+
+      # 18 项断言：JSON 直出 / 围栏包裹 / 纯文本降级 / 上游 500 / 未配 Key / MOCK / healthz
+      - name: 代理离线自测
+        run: python proxy/selftest.py
+
   # 只有 verify 全绿才部署；PR 只验不发布
   deploy:
     name: deploy · GitHub Pages

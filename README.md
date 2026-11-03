@@ -498,8 +498,11 @@ HBuilderX 自带一个 CLI，可以不打开 IDE 就编单个 uni_modules：
    写个没编译过的 Vision 版本比没有更糟（用户会以为识别失败是图片问题）。
    接的时候把那个文件换成 `VNRecognizeTextRequest`（`recognitionLanguages = ["zh-Hans","en-US"]`），
    接口不用动。
-3. **云端代理未提供**：只有 `adapters/network` 与设置页的端点配置，
-   服务端（腾讯云 OCR / 大模型转发）需自行实现，约定见 `services/ocr`、`services/ai`。
+3. **云端 OCR 代理仍未提供；AI 代理已提供**：`proxy/` 里是一个可跑的 FastAPI 代理
+   （`POST /api/ai/answer`，可转发到智谱/硅基流动/DeepSeek/本地 Ollama，见 8.1），
+   但它只是**本地开发用的最小实现** —— 没有鉴权、没有限流、CORS 全开，不能直接上公网。
+   腾讯云 OCR 的代理（`services/ocr` 里约定的 `POST /api/ocr/recognize`）仍需自行实现。
+   不配代理不影响任何主流程：手动录入、本地 OCR、复习、备份全都照常。
 4. **插画是 CSS/图标复现**：设计稿的手绘插画（banner 纸张、日历、头像）用渐变块 + 图标重画，
    不是位图原样抠图。
 5. **示例数据是 32 题**（前端 18 + AI 大模型 14，5 个分类）：设计稿上的 128 题 / 12 今日新增 /
@@ -543,6 +546,36 @@ HBuilderX 自带一个 CLI，可以不打开 IDE 就编单个 uni_modules：
   `npm run verify:segment` 与 `verify:backup` 都已接进 CI。
 - `scripts/port-page.js`：迁移期用于把旧页面「原样保留 template/style、只换 script」，
   保证换技术栈不改像素。
+
+### 8.1 AI 答案代理（`proxy/`）
+
+客户端不直连模型厂商 —— Key 打包进 H5/小程序等于公开（H5 看 Network、小程序可反编译）。
+所以 `src/adapters/network` 只跟自己的代理说话，Key 只存在服务端环境变量里。
+代理是独立的 FastAPI 进程，代码在 `proxy/app.py`，细节见 `proxy/README.md`。
+
+```bash
+pip install -r proxy/requirements.txt
+cp proxy/.env.example proxy/.env     # 填 LLM_API_KEY（智谱 GLM-4-Flash 有永久免费额度）
+# Windows 双击 proxy/run.bat；bash 用 bash proxy/run.sh，服务在 127.0.0.1:8000
+```
+
+客户端「设置 → AI 答案助手」打开开关、服务端地址填 `http://127.0.0.1:8000` 即可。
+没有 Key 时在 `.env` 里设 `MOCK=1`，代理会返回结构正确的假答案，能把
+「生成 → 编辑 → 采用」整条链路先走通。
+
+接口就两个：`GET /healthz`（不打上游、不花钱的自检）和 `POST /api/ai/answer`
+（请求 `{question, category, difficulty, style, sections[]}`，响应 `{answerMarkdown, followUps[]}`，
+与 `src/types/ai.ts` 一一对应）。
+
+换模型只改 `.env` 三行（`LLM_BASE_URL` / `LLM_MODEL` / `LLM_API_KEY`），代码不动：
+智谱 GLM-4-Flash（默认，永久免费）、硅基流动、DeepSeek、本地 Ollama 都兼容。
+
+`python proxy/selftest.py` 是离线自测：起一个桩服务冒充模型厂商，覆盖「JSON 直出 /
+被 json 围栏包裹 / 完全不听指令返回纯文本的降级 / 上游 500 / 未配 Key / MOCK / healthz」
+共 18 项断言，不联网也不需要真 Key，已接进 CI 的独立 job。
+
+代理刻意不做的事：不落库、不缓存题库、不做用户体系。上生产前必须补的三件事
+（收紧 CORS、加鉴权、加限流）写在 `proxy/README.md` 末尾。
 
 ---
 

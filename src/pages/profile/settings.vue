@@ -74,6 +74,23 @@
             @blur="save"
           />
         </view>
+        <view v-if="settings.aiEnabled" class="row row--input">
+          <text class="row-label">访问令牌</text>
+          <input
+            v-model="settings.aiToken"
+            class="row-input"
+            placeholder="代理设了令牌才需要填"
+            placeholder-class="ph"
+            password
+            @blur="save"
+          />
+        </view>
+        <view v-if="settings.aiEnabled" class="row row--hint">
+          <text class="row-desc">
+            令牌填的是你自建代理的 PROXY_TOKEN，不是模型厂商的 Key
+            —— 厂商 Key 只存在服务端，客户端拿到就等于公开
+          </text>
+        </view>
         <view class="row">
           <text class="row-label">答案风格</text>
           <picker :range="styleNames" :value="styleIndex" @change="onStyle">
@@ -308,6 +325,12 @@ function reseed(): void {
   flex-direction: column;
   align-items: stretch;
   padding: 20rpx 0 26rpx;
+}
+
+/* 纯说明文字行：不撑到 .row 的 108rpx 最小高度，紧贴上一行显示 */
+.row--hint {
+  min-height: 0;
+  padding: 0 0 24rpx;
 }
 
 .row-main {

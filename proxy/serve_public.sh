@@ -23,6 +23,11 @@ command -v cloudflared >/dev/null 2>&1 || {
   exit 1
 }
 
+# 代理默认只放行本机和私有网段，穿透域名是公网地址，必须显式放行才能真机验证。
+# 这里开 * 是「验证场景」的取舍：同一时刻还有 PROXY_TOKEN 兜底（若你设置了的话），
+# 生产部署不要这么干，见 proxy/README.md。
+export ALLOWED_ORIGINS="*"
+
 echo "启动本机后端 http://127.0.0.1:8000（H5 + 代理，同源）…"
 MOCK="${MOCK:-}" "$PY" proxy/serve_local.py --port 8000 --no-ssl &
 BACKEND=$!

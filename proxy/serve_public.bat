@@ -26,6 +26,11 @@ if errorlevel 1 (
   exit /b 1
 )
 
+REM The proxy only allows localhost/private networks by default; the tunnel domain is public,
+REM so it has to be allowed explicitly. "*" is a deliberate trade-off for local verification
+REM (PROXY_TOKEN still protects the endpoint if you set one) - do NOT do this in production.
+set ALLOWED_ORIGINS=*
+
 echo Starting backend on http://127.0.0.1:8000 (H5 + proxy, same origin) ...
 start "interview-box backend" cmd /c "%PY% proxy\serve_local.py --port 8000 --no-ssl"
 timeout /t 4 /nobreak >nul

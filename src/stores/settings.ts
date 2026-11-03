@@ -17,6 +17,12 @@ export interface SettingsState {
   cloudOcrEndpoint: string
   aiEnabled: boolean
   aiEndpoint: string
+  /**
+   * 自建代理的访问令牌（对应服务端的 PROXY_TOKEN）。
+   * 注意：这里存的是**代理**的令牌，不是模型厂商的 Key ——
+   * 厂商 Key 只存在于服务端环境变量，客户端永远不该拿到。
+   */
+  aiToken: string
   aiStyle: 'interview' | 'detailed' | 'project'
   lastLibraryFilter: { categoryId: string; sort: string }
 }
@@ -28,6 +34,7 @@ const DEFAULTS: SettingsState = {
   cloudOcrEndpoint: '',
   aiEnabled: false,
   aiEndpoint: '',
+  aiToken: '',
   aiStyle: 'interview',
   lastLibraryFilter: { categoryId: '', sort: 'updated' }
 }

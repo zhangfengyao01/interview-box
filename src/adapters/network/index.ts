@@ -14,10 +14,26 @@ export interface NetworkError {
 
 export interface RequestOptions {
   timeout?: number
+  /**
+   * 自建代理的访问令牌（对应服务端的 PROXY_TOKEN）。
+   * 为空就不带 Authorization 头 —— 代理没设令牌时照样能通，本地开发零摩擦。
+   */
+  token?: string
 }
 
 function endpoint(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`
+}
+
+/**
+ * 取代理返回的 detail 字段（FastAPI 的错误响应体）。
+ * 只认对象形态的 `{ detail: string }`，其他一律忽略 —— 错误路径上不能再抛新异常。
+ */
+function proxyDetail(data: unknown): string {
+  if (!data || typeof data !== 'object') return ''
+  const detail = (data as { detail?: unknown }).detail
+  if (typeof detail === 'string' && detail.trim()) return `：${detail.trim()}`
+  return ''
 }
 
 export const networkAdapter = {
@@ -35,22 +51,29 @@ export const networkAdapter = {
       throw err
     }
 
+    // 令牌只在填了的时候带上，且用 Bearer 前缀（服务端同时也接受裸令牌）
+    const header: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (options.token) header.Authorization = `Bearer ${options.token}`
+
     return new Promise<T>((resolve, reject) => {
       uni.request({
         url: endpoint(baseUrl, path),
         method: 'POST',
         timeout: options.timeout ?? 20000,
-        header: { 'Content-Type': 'application/json' },
+        header,
         data: body as Record<string, unknown>,
         success: (res) => {
           if (res.statusCode >= 200 && res.statusCode < 300) {
             resolve(res.data as T)
             return
           }
+          // 4xx/5xx 时把服务端给的 detail 一起带回上层：
+          // 否则 401/429 这种「有明确原因」的错误，用户只能看到一个干巴巴的状态码，
+          // 代理特地写的「请求太频繁，请 30 秒后再试」就白写了。
           const err: NetworkError = {
             code: 'HTTP',
             status: res.statusCode,
-            message: `代理返回 ${res.statusCode}`
+            message: `代理返回 ${res.statusCode}${proxyDetail(res.data)}`
           }
           reject(err)
         },

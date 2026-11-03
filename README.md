@@ -501,8 +501,10 @@ HBuilderX 自带一个 CLI，可以不打开 IDE 就编单个 uni_modules：
    接口不用动。
 3. **云端 OCR 代理仍未提供；AI 代理已提供**：`proxy/` 里是一个可跑的 FastAPI 代理
    （`POST /api/ai/answer`，可转发到智谱/硅基流动/DeepSeek/本地 Ollama，见 8.1），
-   但它只是**本地开发用的最小实现** —— 没有鉴权、没有限流、CORS 全开，不能直接上公网。
-   腾讯云 OCR 的代理（`services/ocr` 里约定的 `POST /api/ocr/recognize`）仍需自行实现。
+   令牌、限流、CORS 白名单都已有实现（`PROXY_TOKEN` / `RATE_LIMIT_PER_MIN` /
+   `ALLOWED_ORIGINS`），但它是**单机内存态**的——多进程部署要换共享存储，
+   且 X-Forwarded-For 只在可信反代后面才可靠，详见 `proxy/README.md`。
+   腾讯云 OCR 的代理（`services/ocr` 里约定的 `POST /api/ocr/general-accurate`）仍需自行实现。
    不配代理不影响任何主流程：手动录入、本地 OCR、复习、备份全都照常。
 4. **插画是 CSS/图标复现**：设计稿的手绘插画（banner 纸张、日历、头像）用渐变块 + 图标重画，
    不是位图原样抠图。
@@ -546,7 +548,10 @@ HBuilderX 自带一个 CLI，可以不打开 IDE 就编单个 uni_modules：
 - `scripts/verify-backup.mjs`（`npm run verify:backup`）：备份三段式的端到端验证，见 6.0。
 - `scripts/verify-segment.mjs`（`npm run verify:segment`）：拆题规则的回归验证，见 4.1。
   夹具 `scripts/fixtures/ocr-list-*.txt` 是**真实**识别原文，同图两条链路各一份，不是手写的。
-  `npm run verify:segment` 与 `verify:backup` 都已接进 CI。
+- `scripts/verify-network.mjs`（`npm run verify:network`）：把 `uni.request` 换成探针，
+  抓实际发出的请求头，验证「设置里的访问令牌真的进了 Authorization」以及
+  401/429 的提示文案（见 8.1）。
+  `npm run verify:segment` / `verify:backup` / `verify:seed` / `verify:network` 都已接进 CI。
 - `scripts/port-page.js`：迁移期用于把旧页面「原样保留 template/style、只换 script」，
   保证换技术栈不改像素。
 
@@ -580,11 +585,14 @@ cp proxy/.env.example proxy/.env     # 填 LLM_API_KEY（智谱 GLM-4-Flash 有�
 三种场景的具体步骤和限制都写在 `proxy/README.md` 的「真机验证」一节。
 
 `python proxy/selftest.py` 是离线自测：起一个桩服务冒充模型厂商，覆盖「JSON 直出 /
-被 json 围栏包裹 / 完全不听指令返回纯文本的降级 / 上游 500 / 未配 Key / MOCK / healthz」
-共 18 项断言，不联网也不需要真 Key，已接进 CI 的独立 job。
+被 json 围栏包裹 / 完全不听指令返回纯文本的降级 / 上游 500 / 未配 Key / MOCK / healthz /
+令牌 401 / 限流 429 / CORS 白名单」共 31 项断言，不联网也不需要真 Key，已接进 CI 的独立 job。
 
-代理刻意不做的事：不落库、不缓存题库、不做用户体系。上生产前必须补的三件事
-（收紧 CORS、加鉴权、加限流）写在 `proxy/README.md` 末尾。
+客户端侧对应的是 `npm run verify:network`：把 `uni.request` 换成探针，抓**实际发出的
+header** 验证「设置里的令牌真的进了 `Authorization`」，以及 401 / 429 的提示是否把
+服务端 detail 带了出来（代理写完「请求太频繁，请 30 秒后再试」，客户端只显示状态码就白写了）。
+
+代理刻意不做的事：不落库、不缓存题库、不做用户体系。
 
 ---
 

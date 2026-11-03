@@ -66,7 +66,7 @@ export const aiService = {
    */
   async generate(
     request: AnswerRequest,
-    settings: { aiEnabled: boolean; aiEndpoint: string; questionId: string }
+    settings: { aiEnabled: boolean; aiEndpoint: string; aiToken?: string; questionId: string }
   ): Promise<AiAnswerDraft> {
     if (!this.isConfigured(settings)) {
       throw { code: 'AI_NOT_CONFIGURED', message: '未开启 AI 助手或未配置代理地址（设置 → 云端能力）' }
@@ -76,7 +76,7 @@ export const aiService = {
         settings.aiEndpoint,
         '/api/ai/answer',
         { ...request, sections: ANSWER_SECTIONS },
-        { timeout: 45000 }
+        { timeout: 45000, token: settings.aiToken || '' }
       )
       return {
         questionId: settings.questionId,

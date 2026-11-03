@@ -95,7 +95,18 @@ def serve_stub() -> threading.Thread:
 # ---------------------------------------------------------------- 代理实例
 def load_app(**env):
     """按给定环境变量重新加载代理模块（模块级常量在 import 时求值，所以必须 reload）。"""
-    for key in ("LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL", "MOCK", "UPSTREAM_TIMEOUT"):
+    # 新变量加进 app.py 后必须同步加到这个清理名单里：漏掉就会「继承」上一组的配置，
+    # 实测 PROXY_TOKEN 漏清过一次，限流那组全都拿到 401。
+    for key in (
+        "LLM_BASE_URL",
+        "LLM_API_KEY",
+        "LLM_MODEL",
+        "MOCK",
+        "UPSTREAM_TIMEOUT",
+        "PROXY_TOKEN",
+        "RATE_LIMIT_PER_MIN",
+        "ALLOWED_ORIGINS",
+    ):
         os.environ.pop(key, None)
     os.environ.update(env)
     import proxy.app as mod
@@ -103,12 +114,12 @@ def load_app(**env):
     return importlib.reload(mod)
 
 
-async def ask(module, payload: dict):
+async def ask(module, payload: dict, headers: dict | None = None):
     import httpx
 
     transport = httpx.ASGITransport(app=module.app)
     async with httpx.AsyncClient(transport=transport, base_url="http://proxy") as client:
-        return await client.post("/api/ai/answer", json=payload)
+        return await client.post("/api/ai/answer", json=payload, headers=headers or {})
 
 
 def rule(title: str) -> None:
@@ -172,6 +183,79 @@ async def main() -> int:
         h = (await client.get("/healthz")).json()
     check("keyConfigured=true", h.get("keyConfigured") is True, str(h))
     check("model 回显", h.get("model") == "stub", str(h))
+    check("未配令牌时 authRequired=false", h.get("authRequired") is False, str(h))
+    check("默认限流 10/分", h.get("rateLimitPerMin") == 10, str(h))
+
+    # ---------------------------------------------------------------- 8. 鉴权
+    rule("8. 访问令牌（PROXY_TOKEN）")
+    mod_auth = load_app(
+        LLM_BASE_URL=f"http://127.0.0.1:{STUB_PORT}/v1",
+        LLM_API_KEY="k",
+        LLM_MODEL="stub",
+        PROXY_TOKEN="secret-token",
+    )
+    r = await ask(mod_auth, {**base, "question": "RAG 的完整流程是什么？"})
+    check("不带令牌 → 401", r.status_code == 401, str(r.status_code))
+    r = await ask(mod_auth, {**base, "question": "RAG 的完整流程是什么？"}, {"Authorization": "Bearer wrong"})
+    check("错误令牌 → 401", r.status_code == 401, str(r.status_code))
+    r = await ask(
+        mod_auth,
+        {**base, "question": "RAG 的完整流程是什么？"},
+        {"Authorization": "Bearer secret-token"},
+    )
+    check("正确令牌 → 200", r.status_code == 200, str(r.status_code) + " " + r.text[:120])
+    r = await ask(mod_auth, {**base, "question": "RAG 的完整流程是什么？"}, {"Authorization": "secret-token"})
+    check("兼容不带 Bearer 前缀", r.status_code == 200, str(r.status_code))
+
+    # ---------------------------------------------------------------- 9. 限流
+    rule("9. 限流（RATE_LIMIT_PER_MIN=2）")
+    mod_rate = load_app(
+        LLM_BASE_URL=f"http://127.0.0.1:{STUB_PORT}/v1",
+        LLM_API_KEY="k",
+        LLM_MODEL="stub",
+        RATE_LIMIT_PER_MIN="2",
+    )
+    ok1 = await ask(mod_rate, {**base, "question": "第一次"})
+    ok2 = await ask(mod_rate, {**base, "question": "第二次"})
+    third = await ask(mod_rate, {**base, "question": "第三次"})
+    check("前两次放行", ok1.status_code == 200 and ok2.status_code == 200, f"{ok1.status_code}/{ok2.status_code}")
+    check("第三次 429", third.status_code == 429, str(third.status_code))
+    check("429 带 Retry-After", third.headers.get("retry-after") is not None, str(dict(third.headers)))
+
+    transport = httpx.ASGITransport(app=mod_rate.app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://proxy") as client:
+        health = [ (await client.get("/healthz")).status_code for _ in range(5) ]
+    check("healthz 不受限流", set(health) == {200}, str(health))
+
+    # ---------------------------------------------------------------- 10. CORS
+    rule("10. CORS 收紧")
+    mod_cors = load_app(
+        LLM_BASE_URL=f"http://127.0.0.1:{STUB_PORT}/v1",
+        LLM_API_KEY="k",
+        LLM_MODEL="stub",
+        ALLOWED_ORIGINS="https://my-site.example",
+    )
+    transport = httpx.ASGITransport(app=mod_cors.app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://proxy") as client:
+        local = await client.options(
+            "/api/ai/answer",
+            headers={"Origin": "http://localhost:5173", "Access-Control-Request-Method": "POST"},
+        )
+        allowed = await client.options(
+            "/api/ai/answer",
+            headers={"Origin": "https://my-site.example", "Access-Control-Request-Method": "POST"},
+        )
+        stranger = await client.options(
+            "/api/ai/answer",
+            headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"},
+        )
+    check("本地源放行", local.headers.get("access-control-allow-origin") == "http://localhost:5173", str(dict(local.headers)))
+    check("白名单源放行", allowed.headers.get("access-control-allow-origin") == "https://my-site.example", str(dict(allowed.headers)))
+    check(
+        "陌生源不放行（不给 allow-origin 头）",
+        "access-control-allow-origin" not in stranger.headers,
+        str(dict(stranger.headers)),
+    )
 
     print(f"\n{'=' * 40}\n通过 {len(PASS)} 项，失败 {len(FAIL)} 项")
     if FAIL:

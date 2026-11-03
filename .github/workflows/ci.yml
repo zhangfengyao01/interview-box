@@ -55,6 +55,11 @@ jobs:
       - name: 示例数据补种
         run: npm run verify:seed
 
+      # 网络出口：令牌是否真的进了 Authorization 头、401/429 的提示是否可读。
+      # 代理开了 PROXY_TOKEN 之后，这条断了功能就整个不可用，必须钉住。
+      - name: 网络与 AI 调用链路
+        run: npm run verify:network
+
       # 这里刻意不设 UNI_H5_BASE：验的是「本地默认 '/' 地址」这条路径
       - name: 构建 H5
         run: npm run build:h5

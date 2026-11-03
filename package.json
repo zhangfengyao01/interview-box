@@ -4,17 +4,18 @@
   "private": true,
   "description": "面试题匣 · 本地面试题库（uni-app + Vue3 + TypeScript + SQLite）",
   "scripts": {
-    "dev:h5": "uni",
-    "dev:app": "uni -p app",
-    "dev:mp-weixin": "uni -p mp-weixin",
-    "build:h5": "uni build && node scripts/trim-static.mjs",
     "build:app": "uni build -p app && node scripts/trim-static.mjs",
+    "build:h5": "uni build && node scripts/trim-static.mjs",
     "build:mp-weixin": "uni build -p mp-weixin && node scripts/trim-static.mjs",
+    "dev:app": "uni -p app",
+    "dev:h5": "uni",
+    "dev:mp-weixin": "uni -p mp-weixin",
+    "preview": "bash preview/screens.sh",
     "type-check": "vue-tsc --noEmit",
     "verify:backup": "node scripts/verify-backup.mjs",
-    "verify:segment": "node scripts/verify-segment.mjs",
+    "verify:network": "node scripts/verify-network.mjs",
     "verify:seed": "node scripts/verify-seed.mjs",
-    "preview": "bash preview/screens.sh"
+    "verify:segment": "node scripts/verify-segment.mjs"
   },
   "dependencies": {
     "@dcloudio/uni-app": "3.0.0-5030420261029002",

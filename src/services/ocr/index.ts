@@ -129,7 +129,10 @@ export const ocrService = {
    */
   async recognize(
     imagePath: string,
-    options: { settings: { cloudOcrEnabled: boolean; cloudOcrEndpoint: string }; allowCloud?: boolean }
+    options: {
+      settings: { cloudOcrEnabled: boolean; cloudOcrEndpoint: string; aiToken?: string }
+      allowCloud?: boolean
+    }
   ): Promise<OCRResult> {
     const errors: string[] = []
 
@@ -149,7 +152,11 @@ export const ocrService = {
     if (cloudAllowed && cloudReady) {
       const agreed = await this.ensureConsent()
       if (agreed) {
-        const adapter: CloudOCRAdapter = cloudOCRFor(options.settings.cloudOcrEndpoint)
+        // 云 OCR 和 AI 走的是同一个自建代理，共用同一个令牌
+        const adapter: CloudOCRAdapter = cloudOCRFor(
+          options.settings.cloudOcrEndpoint,
+          () => options.settings.aiToken || ''
+        )
         try {
           const result = await adapter.recognize(imagePath)
           return this.withQuality(result)

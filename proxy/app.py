@@ -23,12 +23,14 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
+from collections import deque
 from pathlib import Path
 from typing import Literal
 
 import httpx
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -52,6 +54,24 @@ UPSTREAM_TIMEOUT = float(os.getenv("UPSTREAM_TIMEOUT", "40"))
 # MOCK=1 时不调模型，直接返回一份结构正确的样例。
 # 用途：没有 Key 也能在真机上把「生成 → 编辑 → 采用」整条 UI 链路走通。
 MOCK = os.getenv("MOCK", "") in ("1", "true", "yes")
+
+# 访问令牌。留空 = 不校验（本地开发零摩擦）；一旦设置，请求必须带
+# `Authorization: Bearer <token>`，否则 401。
+# 为什么必须做：代理一旦被穿透到公网，等于把你的模型额度敞开给任何能猜到地址的人，
+# 免费额度被刷爆是分钟级的事。
+PROXY_TOKEN = os.getenv("PROXY_TOKEN", "").strip()
+
+# 每 IP 每分钟允许的请求数（0 表示不限）。同样是「暴露到公网」时的保命配置。
+RATE_LIMIT_PER_MIN = int(os.getenv("RATE_LIMIT_PER_MIN", "10"))
+
+# 允许跨域的源。默认只放行本机与私有网段（真机验证走局域网要用到），
+# 公网域名必须在这里显式列出（也可以显式写 *，但别在生产那么干）。
+ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+LOCAL_ORIGIN_RE = (
+    r"^https?://("
+    r"localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+"
+    r")(:\d+)?$"
+)
 
 DEFAULT_SECTIONS = [
     "面试时可以直接回答的内容",
@@ -92,11 +112,14 @@ class AnswerResponse(BaseModel):
 
 app = FastAPI(title="interview-box AI proxy", version="1.0.0")
 
-# 本地开发：H5 跑在 localhost:8080/5173，代理在 8000，跨源必须放行。
-# 生产环境要把 allow_origins 收紧成你的实际域名，别留 *（否则任何网页都能拿你的 Key 刷额度）。
+# CORS 默认只放行本机与私有网段：本地 H5（localhost:5173）和局域网真机直连
+# （https://192.168.x.x:8443）开箱可用，公网域名必须显式写进 ALLOWED_ORIGINS。
+# 不匹配时不返回 allow-origin 头，浏览器那边会直接拦掉 —— 这才是收紧的正确姿势：
+# 靠「不授权」而不是靠「拒绝」，因为恶意网页根本拿不到响应。
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=LOCAL_ORIGIN_RE,
     allow_methods=["POST", "GET"],
     allow_headers=["*"],
 )
@@ -196,6 +219,57 @@ def extract_follow_ups(markdown: str, sections: list[str]) -> list[str]:
     return out[:8]
 
 
+# ---------------------------------------------------------------- 鉴权与限流
+# 两者都是「进程内内存态」：单进程够用，多 worker 时每个进程各算各的，
+# 正式部署要换成 Redis 之类的共享存储。这一点 README 里也写明了，不藏。
+_RATE_BUCKET: dict[str, deque[float]] = {}
+RATE_WINDOW = 60.0
+
+
+def client_ip(request: Request) -> str:
+    """取真实来源 IP。
+
+    穿透/反代后面看到的 remote 是隧道或 Nginx 的地址，X-Forwarded-For 最左边
+    那个才是真实客户端 —— 拿错的话限流就形同虚设（所有请求共用同一个 IP）。
+    """
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def take_slot(ip: str) -> int:
+    """滑动窗口取一个配额。返回 0 = 放行，>0 = 需要等待的秒数。"""
+    if RATE_LIMIT_PER_MIN <= 0:
+        return 0
+
+    now = time.monotonic()
+    hits = _RATE_BUCKET.setdefault(ip, deque())
+    while hits and now - hits[0] > RATE_WINDOW:
+        hits.popleft()
+
+    if len(hits) >= RATE_LIMIT_PER_MIN:
+        return max(1, int(RATE_WINDOW - (now - hits[0])) + 1)
+    hits.append(now)
+    return 0
+
+
+def require_token(request: Request) -> None:
+    """PROXY_TOKEN 设了才校验；没设就放行，保证本地开发零摩擦。
+
+    兼容性：同时接受 `Bearer xxx` 和裸 `xxx`，省得不同客户端写法打架。
+    """
+    if not PROXY_TOKEN:
+        return
+    header = request.headers.get("authorization", "").strip()
+    if header in (PROXY_TOKEN, f"Bearer {PROXY_TOKEN}"):
+        return
+    raise HTTPException(
+        status_code=401,
+        detail="缺少或错误的访问令牌（本代理设置了 PROXY_TOKEN）",
+    )
+
+
 # ---------------------------------------------------------------- 上游调用
 async def call_llm(req: AnswerRequest) -> AnswerResponse:
     if MOCK:
@@ -248,18 +322,34 @@ async def call_llm(req: AnswerRequest) -> AnswerResponse:
 # ---------------------------------------------------------------- 路由
 @app.get("/healthz")
 async def healthz() -> dict:
-    """给客户端 / 运维一个不花钱的自检：不打上游，只报配置状态。"""
+    """给客户端 / 运维一个不花钱的自检：不打上游，只报配置状态。
+
+    刻意不鉴权、不限流 —— 它是用来判断「服务还活着吗」的，
+    被限流住的自检只会让人误判故障。
+    """
     return {
         "ok": True,
         "mock": MOCK,
         "model": LLM_MODEL,
         "baseUrl": LLM_BASE_URL,
         "keyConfigured": bool(LLM_API_KEY),
+        "authRequired": bool(PROXY_TOKEN),
+        "rateLimitPerMin": RATE_LIMIT_PER_MIN,
     }
 
 
 @app.post("/api/ai/answer", response_model=AnswerResponse)
-async def answer(req: AnswerRequest) -> AnswerResponse:
+async def answer(req: AnswerRequest, request: Request) -> AnswerResponse:
+    require_token(request)
+
+    retry_after = take_slot(client_ip(request))
+    if retry_after:
+        raise HTTPException(
+            status_code=429,
+            detail=f"请求太频繁，请 {retry_after} 秒后再试（每 IP 每分钟 {RATE_LIMIT_PER_MIN} 次）",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     return await call_llm(req)
 
 

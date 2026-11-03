@@ -293,6 +293,7 @@ async function generateAnswer(): Promise<void> {
     const result = await aiService.generate(request, {
       aiEnabled: settings.aiEnabled,
       aiEndpoint: settings.aiEndpoint,
+      aiToken: settings.aiToken,
       questionId: id.value
     })
     draft.value = result

@@ -12,6 +12,7 @@ cp proxy/.env.example proxy/.env      # 填入 LLM_API_KEY
 ```
 
 客户端「我的 → 设置 → AI 答案助手」：打开开关，服务端地址填 `http://127.0.0.1:8000`。
+代理设了 `PROXY_TOKEN` 的话，同一页的「访问令牌」填一样的值。
 
 **没有 Key 也想先看 UI 效果**：`.env` 里设 `MOCK=1`，代理会返回一份结构正确的假答案，
 「生成 → 编辑 → 采用」整条链路照常能走通，只是内容标了 mock。
@@ -30,9 +31,11 @@ cp proxy/.env.example proxy/.env      # 填入 LLM_API_KEY
 ## 接口
 
 ```
-GET  /healthz            {ok, mock, model, baseUrl, keyConfigured}   // 不打上游，不花钱
+GET  /healthz            {ok, mock, model, baseUrl, keyConfigured, authRequired, rateLimitPerMin}
+                         // 不打上游、不鉴权、不限流 —— 它是探活用的，被限住只会让人误判故障
 POST /api/ai/answer      请求 {question, category, difficulty, style, sections[]}
                          响应 {answerMarkdown, followUps[]}
+                         // PROXY_TOKEN 设了时要求 Authorization: Bearer <token>
 ```
 
 字段定义与 `src/types/ai.ts` 的 `AnswerRequest` / `AnswerResult` 一一对应。
@@ -69,10 +72,25 @@ bash proxy/serve_public.sh          # Windows 双击 proxy/serve_public.bat
 开发者工具预览扫码 → 手机上胶囊菜单 ⋯ → 打开调试 → 重新进入小程序。
 正式版/体验版仍然必须备案域名。
 
-## 上生产前必须改的三处
+## 接口安全：令牌、限流、CORS
 
-1. `allow_origins=["*"]` → 换成你的实际域名（现在任何网页都能拿你的 Key 刷额度）；
-2. 没有鉴权 → 客户端目前不带任何 header，加鉴权要同步改 `src/adapters/network/index.ts`；
-3. 没有限流 → 免费额度被刷爆是分钟级的事，至少按 IP 加个令牌桶。
+三样都已经有实现，靠环境变量开关（`.env` 里设置）：
+
+| 变量 | 默认 | 作用 |
+|---|---|---|
+| `PROXY_TOKEN` | 空 | 设了之后请求必须带 `Authorization: Bearer <token>`，否则 401。空 = 不校验（本地零摩擦） |
+| `RATE_LIMIT_PER_MIN` | `10` | 每 IP 每分钟允许的请求数，超限返回 429 + `Retry-After`。`0` = 不限 |
+| `ALLOWED_ORIGINS` | 空 | 额外放行的源，逗号分隔。默认已放行 `localhost` / `127.0.0.1` / 私有网段（`192.168.x.x`、`10.x`、`172.16-31.x`）任意端口 |
+
+客户端侧对应改动已经做完了：设置页「访问令牌」→ `src/adapters/network` 在 header 带
+`Authorization`；没填就不带，所以本地不设令牌照样能通。回归脚本
+`npm run verify:network` 会抓实际发出的 header 验证这条链路，已接进 CI。
+
+两点要先说清楚，别以为设完就万事大吉：
+
+1. **令牌和限流都是进程内内存态**——单进程没问题，用 `--workers N` 起多进程时
+   每个进程各算各的（实际限额变成 N 倍），正式部署要换成 Redis 这类共享存储；
+2. **X-Forwarded-For 决定限流按谁算**——我取的是最左边那个值，所以它只有在你信任的
+   反代/穿透后面才可信；直接裸奔在公网上，这个头是可以伪造的，限流会被绕过。
 
 代理刻意不做的事：不落库、不缓存题库、不做用户体系。它只做协议转换和 Key 托管。

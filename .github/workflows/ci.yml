@@ -43,7 +43,7 @@ jobs:
       - name: 类型检查
         run: npm run type-check
 
-      # 导出 → 5 条负例 → 清空 → 覆盖恢复 → 合并恢复，35 项断言
+      # 导出 → 5 条负例 → 清空 → 覆盖恢复 → 合并恢复，30 项断言
       - name: 备份恢复端到端
         run: npm run verify:backup
 

@@ -334,7 +334,7 @@ acceptDraft({ editedText, overwrite })   ← 唯一写 reference_answer 的入�
 | `npm run type-check` | **0 error**（strict，覆盖 13 个页面与全部 .vue） |
 | `npm run build:h5` | 成功，按路由分包 |
 | `npm run build:mp-weixin` | 成功，`plus.sqlite` 未进包 |
-| `npm run verify:backup` | **35 项全通过**（导出 → 清空 → 覆盖恢复 → 合并恢复，含 5 条负例） |
+| `npm run verify:backup` | **30 项全通过**（导出 → 清空 → 覆盖恢复 → 合并恢复，含 5 条负例） |
 | `npm run verify:segment` | **48 项全通过**（两份真实 OCR 输出逐条比对 + 6 种编号写法 + 4 条负例） |
 | 拆题准确率（真实截图）※ | 13/13 条题面与截图逐字对上，题面相似度 **0.996**，详见 4.1 |
 | 产物密钥扫描 | `dist/` 内无 `sk-` / `AKID` / `gh?_` / 私钥块，命中即 fail（跳过 `static/ocr` 第三方 wasm 内核与二进制 —— 那几 MB 随机字节必然误伤，规则本身没放宽，塞个假 `AKID` 进去照样能拦下） |

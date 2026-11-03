@@ -370,10 +370,13 @@ function openDetail(id: string): void {
   color: #5b50f5;
 }
 
+/* 选中态的短横居中对齐文字：left:0 是「贴着 tab 左边缘」，文字一长就会偏到左边。
+   改成 50% + 自身一半的位移，不管文字多宽都压在正中。 */
 .tab-line {
   position: absolute;
-  left: 0;
+  left: 50%;
   bottom: 0;
+  transform: translateX(-50%);
   width: 38rpx;
   height: 6rpx;
   border-radius: 3rpx;

@@ -66,8 +66,12 @@ function go(item: TabItem): void {
   background-color: #f0f0f7;
 }
 
+/* 132rpx -> 112rpx：原来图标+文字+短横实测只占 46px，66px 的条高上下各空了 10px。
+   52px 能把内容托住且上下各留 5px，比原来看起来紧凑，也不会挤出边界。
+   改这个值要同步改 global.scss 里 .screen--tabbar 的 padding-bottom，
+   否则页面底部会多留一块空白。 */
 .tabbar-inner {
-  height: 132rpx;
+  height: 112rpx;
   display: flex;
   flex-direction: row;
   align-items: center;

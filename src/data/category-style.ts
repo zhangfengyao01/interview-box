@@ -13,6 +13,7 @@ export interface CategoryStyle {
  */
 export const CATEGORY_STYLE: Record<string, CategoryStyle> = {
   cat_fe: { icon: 'code', color: '#F0A03C', bg: '#FDF1DE' },
+  cat_ai: { icon: 'sparkle', color: '#8B5CF6', bg: '#F3EEFF' },
   cat_algo: { icon: 'nodes', color: '#34C77B', bg: '#E6F7ED' },
   cat_pm: { icon: 'briefcase', color: '#FF7A45', bg: '#FFEDE5' },
   cat_proj: { icon: 'layers', color: '#34C77B', bg: '#E6F7ED' }

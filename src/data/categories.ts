@@ -6,7 +6,8 @@ import type { Category } from '@/types/models'
  */
 export const BUILTIN_CATEGORIES: Category[] = [
   { id: 'cat_fe', name: '前端开发', sortOrder: 1, isBuiltin: true, createdAt: 0, updatedAt: 0 },
-  { id: 'cat_algo', name: '算法与数据结构', sortOrder: 2, isBuiltin: true, createdAt: 0, updatedAt: 0 },
-  { id: 'cat_pm', name: '产品经理', sortOrder: 3, isBuiltin: true, createdAt: 0, updatedAt: 0 },
-  { id: 'cat_proj', name: '项目经验', sortOrder: 4, isBuiltin: true, createdAt: 0, updatedAt: 0 }
+  { id: 'cat_ai', name: 'AI 大模型', sortOrder: 2, isBuiltin: true, createdAt: 0, updatedAt: 0 },
+  { id: 'cat_algo', name: '算法与数据结构', sortOrder: 3, isBuiltin: true, createdAt: 0, updatedAt: 0 },
+  { id: 'cat_pm', name: '产品经理', sortOrder: 4, isBuiltin: true, createdAt: 0, updatedAt: 0 },
+  { id: 'cat_proj', name: '项目经验', sortOrder: 5, isBuiltin: true, createdAt: 0, updatedAt: 0 }
 ]

@@ -13,6 +13,7 @@
     "type-check": "vue-tsc --noEmit",
     "verify:backup": "node scripts/verify-backup.mjs",
     "verify:segment": "node scripts/verify-segment.mjs",
+    "verify:seed": "node scripts/verify-seed.mjs",
     "preview": "bash preview/screens.sh"
   },
   "dependencies": {

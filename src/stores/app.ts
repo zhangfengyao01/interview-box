@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { bootDatabase, dbEngine, dbFallbackInfo } from '@/adapters/database'
-import { seedIfEmpty } from '@/data/seed'
+import { seedIfEmpty, seedSupplement } from '@/data/seed'
 import { db } from '@/adapters/database'
 import { questionRepo } from '@/repositories/question'
 import { categoryRepo } from '@/repositories/category'
@@ -43,6 +43,9 @@ export const useAppStore = defineStore('app', () => {
       const info = dbFallbackInfo()
       fallbackReason.value = info.fellBack ? info.reason : ''
       seeded.value = await seedIfEmpty(db())
+      // 已有数据的库（老用户 / 自己录过题的库）走这条：只补新增的示例题，不动已有数据
+      const supplemented = await seedSupplement(db())
+      if (supplemented > 0) seeded.value = true
       await refresh()
       ready.value = true
       lastError.value = ''

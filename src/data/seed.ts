@@ -6,11 +6,19 @@ import type { MasteryStatus } from '@/types/models'
 import { BUILTIN_CATEGORIES } from './categories'
 
 /**
- * 示例数据：4 个内置分类 + 10 个标签 + 18 道前端面试题。
+ * 示例数据：5 个内置分类 + 14 个标签 + 32 道题（前端 18 + AI 大模型 14）。
  *
- * 只在「库里一道题都没有」时写入（首次启动），用户清空数据后不会再被塞回来 ——
- * 判断依据是 questions 表条数而不是某个 first_launch 标记，避免标记与实际数据不一致。
+ * 写入策略分两条：
+ * - `seedIfEmpty`：只在「库里一道题都没有」时写入（首次启动），
+ *   用户清空数据后不会再被塞回来 —— 判断依据是 questions 表条数而不是某个 first_launch 标记，
+ *   避免标记与实际数据不一致；
+ * - `seedSupplement`：给**已有数据**的库补写后来新增的示例题（见函数注释）。
+ *   加新题时把 `SEED_VERSION` +1 即可，老用户下次启动就能收到。
  */
+
+/** 示例库版本：新增/修改内置示例题时 +1 */
+export const SEED_VERSION = 2
+const SEED_VERSION_KEY = 'interview_box_seed_version'
 
 export const SEED_TAGS: { id: string; name: string; color: string }[] = [
   { id: 'tag_前端工程化', name: '前端工程化', color: '#5B50F5' },
@@ -22,7 +30,11 @@ export const SEED_TAGS: { id: string; name: string; color: string }[] = [
   { id: 'tag_手写代码', name: '手写代码', color: '#3B82F6' },
   { id: 'tag_数据结构', name: '数据结构', color: '#10B981' },
   { id: 'tag_需求分析', name: '需求分析', color: '#10B981' },
-  { id: 'tag_项目复盘', name: '项目复盘', color: '#3B82F6' }
+  { id: 'tag_项目复盘', name: '项目复盘', color: '#3B82F6' },
+  { id: 'tag_大模型', name: '大模型', color: '#8B5CF6' },
+  { id: 'tag_RAG', name: 'RAG', color: '#3B82F6' },
+  { id: 'tag_Agent', name: 'Agent', color: '#10B981' },
+  { id: 'tag_提示工程', name: '提示工程', color: '#F59E0B' }
 ]
 
 interface SeedQuestion {
@@ -233,6 +245,156 @@ function buildQuestions(): SeedQuestion[] {
       masteryStatus: 'new',
       createdAt: t - 20 * H,
       tags: ['项目复盘']
+    },
+    ...buildAiQuestions(t)
+  ]
+}
+
+/**
+ * AI 大模型方向的题（14 道）。
+ *
+ * 选这些题的依据是「大模型应用岗实际会问什么」，不是罗列名词：
+ * RAG 的检索链路（召回 → 精排 → 压缩）、Agent 间的协议（A2A / MCP / ADK）、
+ * 以及前端视角的流式渲染。参考回答都写到「能接住追问」的粒度 ——
+ * 只写定义的话，面试官问一句「那你怎么落地」就没了。
+ *
+ * 单独拆一个函数是因为这块以后还会加，和前端那 18 道混在一个字面量里会越来越难读。
+ */
+function buildAiQuestions(t: number): SeedQuestion[] {
+  const H = 3600 * 1000
+  return [
+    {
+      title: '什么是 RAG？完整流程是怎么样的？',
+      categoryId: 'cat_ai',
+      referenceAnswer:
+        'RAG（Retrieval-Augmented Generation）是「先检索、再生成」：把私有或时效性知识切块存进向量库，提问时先检索相关片段，拼进 prompt 让模型基于片段作答。链路分两段 —— 离线索引：文档解析 → 分块（按语义或标题切，几百 token、带重叠）→ 向量化 → 入库；在线问答：query 改写/扩展 → 混合检索召回 top-k → rerank 精排 → 组装上下文 → LLM 生成 → 引用回填。工程上还要有评测与反馈闭环，否则调参全靠感觉。',
+      masteryStatus: 'learning',
+      nextReviewAt: addDays(1),
+      reviewCount: 1,
+      isFavorite: true,
+      createdAt: t - 3 * DAY_MS,
+      tags: ['RAG', '大模型', '面试高频']
+    },
+    {
+      title: '为什么 RAG 里要做 Rerank？具体怎么落地？',
+      categoryId: 'cat_ai',
+      referenceAnswer:
+        '召回用的向量模型是双塔结构（query 和文档分别编码后算相似度），快但精度有限；rerank 用 cross-encoder 把 query 和文档拼在一起打分，精度明显更高但慢，所以只对召回的 topN（几十条）做精排，再取 topK（3~5 条）喂给模型。落地常用 bge-reranker、Cohere Rerank，或用 LLM 直接打分。真正的调参点是「召回多少、留多少」，要同时看 recall@k 和最终答案正确率，只看其中一个会跑偏。',
+      masteryStatus: 'new',
+      createdAt: t - 2 * DAY_MS,
+      tags: ['RAG', '大模型']
+    },
+    {
+      title: '什么是混合检索？为什么在基于大模型的应用里需要它？',
+      categoryId: 'cat_ai',
+      referenceAnswer:
+        '稠密向量检索和稀疏检索（BM25/关键词）并行跑，再把两路结果融合排序。原因是向量擅长语义相似，但对型号、编号、专有名词这类「字面必须对上」的查询不敏感，比如问「XR-2000 的保修期」，向量可能召回一堆「售后服务」的段落，而 BM25 能精确命中型号。融合常用 RRF（按名次取倒数相加）或分数归一化后加权。代价是要维护两套索引加一个融合层。',
+      masteryStatus: 'new',
+      createdAt: t - 2 * DAY_MS - 4 * H,
+      tags: ['RAG', '大模型']
+    },
+    {
+      title: '什么是查询扩展？为什么在 RAG 应用中需要查询扩展？',
+      categoryId: 'cat_ai',
+      referenceAnswer:
+        '把一句用户问法改写成多个查询分别检索，再合并去重。常见三种：Multi-Query（让模型生成 3~5 个同义或不同角度的问法）、HyDE（先生成一段假设答案，用它的向量去检索）、以及把复合问题拆成子问题逐个检索。它解决的是「用户措辞和文档措辞对不上」造成的漏召回。代价是检索次数和延迟上升，通常要配合缓存和并发。',
+      masteryStatus: 'new',
+      createdAt: t - 2 * DAY_MS - 8 * H,
+      tags: ['RAG', '提示工程']
+    },
+    {
+      title: '什么是 Self-Query（自查询）？为什么在 RAG 中需要自查询？',
+      categoryId: 'cat_ai',
+      referenceAnswer:
+        '用模型从自然语言里拆出「语义查询 + 结构化过滤条件」。比如「2024 年之后发布、支持中文的向量库」→ 语义部分是「支持中文的向量库」，过滤条件是 year > 2023 且 lang = zh，先按元数据过滤再做向量检索。前提是给文档定义好元数据 schema 并写进 prompt。好处是能利用数据库的标量索引做前置裁剪，比纯向量检索更准、也更快。',
+      masteryStatus: 'new',
+      createdAt: t - 2 * DAY_MS - 12 * H,
+      tags: ['RAG', '大模型']
+    },
+    {
+      title: '什么是提示压缩？为什么在 RAG 中需要提示压缩？',
+      categoryId: 'cat_ai',
+      referenceAnswer:
+        '上下文越长，无关内容越多，模型越容易被干扰（Lost in the Middle），成本和延迟也线性上升。压缩分三档：① 抽取式，按与 query 的相关度只保留关键句；② token 级压缩，用 LLMLingua 这类小模型判断哪些 token 可以删；③ 结构化压缩，先把长文档总结成要点再用。要注意压缩本身会丢信息，必须靠评测集兜住，不能凭感觉说「变短了但没变差」。',
+      masteryStatus: 'new',
+      createdAt: t - 44 * H,
+      tags: ['RAG', '提示工程']
+    },
+    {
+      title: 'A2A 协议有哪五大设计原则？',
+      categoryId: 'cat_ai',
+      referenceAnswer:
+        'A2A 是 Google 2025 年提出、后交由 Linux Foundation 托管的 agent 互操作协议。官方五条原则：① 拥抱 agent 能力——agent 之间是黑盒协作，不要求暴露内部状态、工具和记忆；② 基于现有标准构建——HTTP、JSON-RPC 2.0、SSE；③ 默认安全——企业级认证授权，与 OpenAPI 的鉴权方案对齐；④ 支持长时任务——任务可异步、可流式、状态可恢复；⑤ 模态无关——不只文本，也支持音视频等。回答时补一句它的定位：解决的是 agent 与 agent 之间怎么通信，不是 agent 怎么用工具。',
+      masteryStatus: 'new',
+      createdAt: t - 40 * H,
+      tags: ['Agent', '大模型', '面试高频']
+    },
+    {
+      title: 'A2A 协议的工作原理是怎样的？',
+      categoryId: 'cat_ai',
+      referenceAnswer:
+        '核心是三个对象：Agent Card（`/.well-known/agent.json`，描述能力、端点、鉴权方式，用于能力发现）、Task（一次协作的载体，有 id 和状态机 submitted / working / input-required / completed / failed）、Message 与 Artifact（对话消息与最终产物）。流程：客户端先拉 Agent Card → 发 `message/send` 或 `message/stream` 创建任务 → 服务端推进状态并通过 SSE 推送中间产物 → 需要补充信息时进入 input-required，客户端回填后继续。',
+      masteryStatus: 'new',
+      createdAt: t - 38 * H,
+      tags: ['Agent', '大模型']
+    },
+    {
+      title: 'A2A 协议与 MCP 协议的关系是怎样的？',
+      categoryId: 'cat_ai',
+      referenceAnswer:
+        '不是竞争关系，是两层不同的事。MCP（Model Context Protocol，Anthropic 提出）解决「agent ↔ 工具/数据源」：把数据库、文件系统、API 以 tools / resources / prompts 的形式暴露给模型。A2A 解决「agent ↔ agent」：不同厂商、不同框架的 agent 之间怎么委派任务、交换产物。一句话记忆：MCP 竖着接资源，A2A 横着连同行。实际系统里通常两个都用。',
+      masteryStatus: 'learning',
+      nextReviewAt: addDays(2),
+      reviewCount: 1,
+      createdAt: t - 36 * H,
+      tags: ['Agent', '大模型', '面试高频']
+    },
+    {
+      title: '什么是 Google ADK？',
+      categoryId: 'cat_ai',
+      referenceAnswer:
+        'Agent Development Kit，2025 年开源的 agent 开发框架（以 Python 为主，后续补了 Java），与 Gemini / Vertex AI 深度集成。特点是 code-first：agent 就是代码里的对象，用 instructions + tools 定义行为；内置多 agent 编排（Sequential / Parallel / Loop）、会话与状态管理、回调钩子；部署可以丢到 Vertex AI Agent Engine 或 Cloud Run。定位类似 LangGraph、OpenAI Agents SDK，选型主要看现有云环境和模型供应商。',
+      masteryStatus: 'new',
+      createdAt: t - 34 * H,
+      tags: ['Agent', '大模型']
+    },
+    {
+      title: 'Function Calling 的原理是什么？',
+      categoryId: 'cat_ai',
+      referenceAnswer:
+        '模型并不真的执行函数，而是按预先给的 JSON Schema 输出一个结构化调用意图（函数名 + 参数），宿主程序解析后真正执行，再把结果作为一条 tool 消息回填，模型继续生成。工程上要处理：参数校验与失败重试、并行调用、超时、以及模型编造工具名的兜底。安全上工具必须白名单 + 最小权限，高危操作要人工确认。',
+      masteryStatus: 'new',
+      createdAt: t - 30 * H,
+      tags: ['大模型', 'Agent']
+    },
+    {
+      title: '微调和 RAG 该怎么选？',
+      categoryId: 'cat_ai',
+      referenceAnswer:
+        '要「事实准确、可更新、可溯源」的知识 → RAG，改一行文档就生效，还能给引用；要「稳定的风格、格式、领域语气、固定输出结构」→ 微调（SFT / LoRA）。两者不互斥，常见组合是微调让小模型学会按格式调用检索、再用 RAG 灌知识。成本上 RAG 贵在推理 token 和检索延迟，微调贵在数据标注和迭代周期 —— 面试里把这笔账算清楚，比背定义有说服力。',
+      masteryStatus: 'new',
+      createdAt: t - 28 * H,
+      tags: ['大模型', '技术选型']
+    },
+    {
+      title: '怎么评测一套 RAG 系统？',
+      categoryId: 'cat_ai',
+      referenceAnswer:
+        '拆成检索和生成两段评。检索端看 recall@k、MRR、nDCG，回答「该召回的有没有进来」；生成端看 faithfulness（答案是否都能被上下文支持）、answer relevance、context precision/recall，RAGAS 这类框架可以用模型当裁判自动打分。再往上要有自己的 golden set（真实问题 + 标准答案 + 应召回的 chunk id），每次改分块、换模型、改提示词都跑一遍回归，否则调参就是碰运气。',
+      masteryStatus: 'learning',
+      nextReviewAt: addDays(3),
+      reviewCount: 1,
+      createdAt: t - 26 * H,
+      tags: ['RAG', '大模型', '技术能力']
+    },
+    {
+      title: '大模型流式输出在前端怎么实现？',
+      categoryId: 'cat_ai',
+      referenceAnswer:
+        '服务端把模型输出转成 SSE（`text/event-stream`）或 WebSocket 逐块推；前端用 fetch + ReadableStream 读（`response.body.getReader()`）—— EventSource 只支持 GET 且不能自定义 header，带鉴权一般还是用 fetch 流式。渲染上有三个坑：按帧合并 chunk 再更新状态（每个 token 一次 setState 会卡）、自动滚动要先判断用户是否手动上滑、Markdown 要能增量解析（未闭合的代码块会导致整段渲染抖动）。中断用一个 AbortController，同时把半截内容存下来。',
+      masteryStatus: 'new',
+      createdAt: t - 22 * H,
+      tags: ['大模型', '技术能力', '面试高频']
     }
   ]
 }
@@ -245,13 +407,9 @@ export async function seedIfEmpty(db: DatabaseAdapter): Promise<boolean> {
   const t = Date.now()
 
   await db.transaction(async (tx) => {
-    await tx.insertMany(
-      'categories',
-      BUILTIN_CATEGORIES.map((c) =>
-        toRow('categories', { ...c, createdAt: t, updatedAt: t })
-      )
-    )
-
+    for (const c of BUILTIN_CATEGORIES) {
+      await tx.insert('categories', toRow('categories', { ...c, createdAt: t, updatedAt: t }))
+    }
     await tx.insertMany(
       'tags',
       SEED_TAGS.map((tag) => toRow('tags', { ...tag, createdAt: t }))
@@ -261,48 +419,151 @@ export async function seedIfEmpty(db: DatabaseAdapter): Promise<boolean> {
       id: 'asset_seed_1',
       sourceType: 'text' as const,
       filePath: null,
-      rawText: '前端面试题整理（示例）',
-      editedText: '前端面试题整理（示例）',
+      rawText: '面试题整理（示例）',
+      editedText: '面试题整理（示例）',
       ocrEngine: 'manual',
       createdAt: t - 2 * DAY_MS
     }
     await tx.insert('source_assets', toRow('source_assets', asset))
 
-    const questions = buildQuestions()
-    for (const item of questions) {
-      const { tags, ...rest } = item
-      const row = {
-        id: uuid(),
-        title: rest.title,
-        content: '',
-        referenceAnswer: rest.referenceAnswer || '',
-        myAnswer: rest.myAnswer || '',
-        notes: rest.notes || '',
-        categoryId: rest.categoryId,
-        difficulty: 2,
-        masteryStatus: rest.masteryStatus || 'new',
-        isFavorite: !!rest.isFavorite,
-        answerOrigin: 'manual' as const,
-        sourceCompany: '',
-        sourceRole: '',
-        sourceRound: '',
-        sourceDate: null,
-        nextReviewAt: rest.nextReviewAt ?? null,
-        reviewCount: rest.reviewCount ?? 0,
-        createdAt: rest.createdAt || t,
-        updatedAt: rest.createdAt || t,
-        deletedAt: null
-      }
-      await tx.insert('questions', toRow('questions', row))
-      await tx.insert(
-        'question_sources',
-        toRow('question_sources', { questionId: row.id, sourceAssetId: asset.id })
-      )
-      for (const name of tags) {
-        await tx.insert('question_tags', toRow('question_tags', { questionId: row.id, tagId: `tag_${name}` }))
-      }
+    for (const item of buildQuestions()) {
+      await insertSeedQuestion(tx, item, asset.id, t)
     }
   })
 
+  writeSeedVersion()
   return true
+}
+
+/**
+ * 给「已经有数据」的库补写新增的示例题。
+ *
+ * 为什么需要它：`seedIfEmpty` 看到库里已经有题就直接返回了 ——
+ * 老用户（或者自己已经录了题的库）永远收不到后来新增的示例题。
+ * 直接在 `seedIfEmpty` 里改成"每次都补"也不行：用户删掉的示例题会被反复塞回来。
+ *
+ * 所以做成两把锁：
+ *  1. 版本号（`interview_box_seed_version`）—— 版本没变就完全跳过，正常启动零开销；
+ *  2. 标题去重 —— 即使版本号丢了，也只补库里真没有的题，不会重复，也不会复活用户删掉的
+ *     （删掉的是软删，`db.all('questions')` 拿得到，仍在去重集合里）。
+ *
+ * 只增不改：不动用户已有的题、笔记、答案和复习记录。
+ */
+export async function seedSupplement(db: DatabaseAdapter): Promise<number> {
+  if (readSeedVersion() >= SEED_VERSION) return 0
+
+  const rows = await db.all('questions')
+  if (rows.length === 0) {
+    // 空库交给 seedIfEmpty 走全量，这里不动手
+    writeSeedVersion()
+    return 0
+  }
+
+  const have = new Set(rows.map((r) => normTitle(String(r.title || ''))))
+  const t = Date.now()
+  const assetId = 'asset_seed_ai'
+  let added = 0
+
+  await db.transaction(async (tx) => {
+    for (const c of BUILTIN_CATEGORIES) {
+      const hit = await tx.first('categories', { eq: { id: c.id } })
+      if (!hit) {
+        await tx.insert('categories', toRow('categories', { ...c, createdAt: t, updatedAt: t }))
+      }
+    }
+    for (const tag of SEED_TAGS) {
+      const hit = await tx.first('tags', { eq: { id: tag.id } })
+      if (!hit) {
+        await tx.insert('tags', toRow('tags', { ...tag, createdAt: t }))
+      }
+    }
+
+    const missing = buildQuestions().filter((q) => !have.has(normTitle(q.title)))
+    if (!missing.length) return
+
+    const assetHit = await tx.first('source_assets', { eq: { id: assetId } })
+    if (!assetHit) {
+      await tx.insert(
+        'source_assets',
+        toRow('source_assets', {
+          id: assetId,
+          sourceType: 'text' as const,
+          filePath: null,
+          rawText: 'AI 大模型面试题（示例）',
+          editedText: 'AI 大模型面试题（示例）',
+          ocrEngine: 'manual',
+          createdAt: t
+        })
+      )
+    }
+
+    for (const item of missing) {
+      await insertSeedQuestion(tx, item, assetId, t)
+      added += 1
+    }
+  })
+
+  writeSeedVersion()
+  return added
+}
+
+/** 一条示例题落库：题目 + 来源关系 + 标签关系 */
+async function insertSeedQuestion(
+  tx: DatabaseAdapter,
+  item: SeedQuestion,
+  assetId: string,
+  t: number
+): Promise<void> {
+  const { tags, ...rest } = item
+  const row = {
+    id: uuid(),
+    title: rest.title,
+    content: '',
+    referenceAnswer: rest.referenceAnswer || '',
+    myAnswer: rest.myAnswer || '',
+    notes: rest.notes || '',
+    categoryId: rest.categoryId,
+    difficulty: 2,
+    masteryStatus: rest.masteryStatus || 'new',
+    isFavorite: !!rest.isFavorite,
+    answerOrigin: 'manual' as const,
+    sourceCompany: '',
+    sourceRole: '',
+    sourceRound: '',
+    sourceDate: null,
+    nextReviewAt: rest.nextReviewAt ?? null,
+    reviewCount: rest.reviewCount ?? 0,
+    createdAt: rest.createdAt || t,
+    updatedAt: rest.createdAt || t,
+    deletedAt: null
+  }
+  await tx.insert('questions', toRow('questions', row))
+  await tx.insert(
+    'question_sources',
+    toRow('question_sources', { questionId: row.id, sourceAssetId: assetId })
+  )
+  for (const name of tags) {
+    await tx.insert('question_tags', toRow('question_tags', { questionId: row.id, tagId: `tag_${name}` }))
+  }
+}
+
+/** 去掉空白再比，避免「什么是 RAG？」与「什么是RAG?」被当成两道题 */
+function normTitle(s: string): string {
+  return s.replace(/\s+/g, '').trim()
+}
+
+function readSeedVersion(): number {
+  try {
+    return Number(uni.getStorageSync(SEED_VERSION_KEY) || 0)
+  } catch {
+    return 0
+  }
+}
+
+function writeSeedVersion(): void {
+  try {
+    uni.setStorageSync(SEED_VERSION_KEY, SEED_VERSION)
+  } catch {
+    // 存不下版本号只会导致下次多跑一遍去重，不影响正确性
+  }
 }

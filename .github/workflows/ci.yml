@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   verify:
-    name: type-check · backup-e2e · segment · build
+    name: type-check · verify · build
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -50,6 +50,10 @@ jobs:
       # 拆题规则回归：两份真实 OCR 输出（Node 链路 / 浏览器链路）+ 编号格式 + 负例，48 项断言
       - name: 拆题规则回归
         run: npm run verify:segment
+
+      # 示例数据：空库播种 / 老库按版本补种 / 幂等 / 删掉的题不复活
+      - name: 示例数据补种
+        run: npm run verify:seed
 
       # 这里刻意不设 UNI_H5_BASE：验的是「本地默认 '/' 地址」这条路径
       - name: 构建 H5

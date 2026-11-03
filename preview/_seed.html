@@ -60,7 +60,7 @@ html,body{margin:0;background:#fff}iframe{width:390px;height:var(--h,1000px);bor
   var kind = q.get('kind') === 'batch' ? 'batch' : 'ocr';
   var plan = seeds[kind];
   var f = document.getElementById('f');
-  var base = 'http://127.0.0.1:4567/#';
+  var base = location.origin + '/#';
 
   f.onload = function () {
     if (f.getAttribute('seeded')) return;

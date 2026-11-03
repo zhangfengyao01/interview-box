@@ -13,7 +13,9 @@ mkdir -p "$ROOT/preview/screens"
 OUT="$ROOT/preview/screens/${NAME}.png"
 WIN=$(cygpath -w "$OUT" 2>/dev/null || echo "$OUT")
 
-URL="http://127.0.0.1:4567/_shot.html?p=${ROUTE}&h=${H}"
+# 端口由 screens.sh 通过环境变量传入（它会挑一个空闲端口）；单独手动跑时才用 4567。
+PORT="${PORT:-4567}"
+URL="http://127.0.0.1:${PORT}/_shot.html?p=${ROUTE}&h=${H}"
 if [ -n "$EXTRA" ]; then URL="${URL}&${EXTRA}"; fi
 
 "$CHROME" --headless=new --disable-gpu --no-sandbox --hide-scrollbars \

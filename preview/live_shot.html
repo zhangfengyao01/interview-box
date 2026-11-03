@@ -8,7 +8,9 @@ iframe{width:390px;height:var(--h,844px);border:0;display:block}
   var h = q.get('h');
   if (h) document.body.style.setProperty('--h', h + 'px');
   var path = q.get('p') || '/pages/home/index';
-  var base = 'http://127.0.0.1:4567/#';
+  // 用 location.origin 而不是写死端口：这个探针页本来就和应用同源，
+  // screens.sh 每次挑的空闲端口不同，写死 4567 会让 iframe 连到不存在的端口 → 截出空白图。
+  var base = location.origin + '/#';
   var f = document.getElementById('f');
   var idArg = q.get('id');
 

@@ -8,7 +8,7 @@
   var p = q.get('p') || '/pages/library/index';
   var sel = q.get('s') || '.tabs';
   var f = document.getElementById('f');
-  f.src = 'http://127.0.0.1:4567/#' + p;
+  f.src = location.origin + '/#' + p;
   function info(el) {
     if (!el) return null;
     var r = el.getBoundingClientRect();

@@ -520,9 +520,16 @@ HBuilderX 自带一个 CLI，可以不打开 IDE 就编单个 uni_modules：
 
 ## 八、开发工具
 
-- `preview/screens.sh`（`npm run preview`）：起临时静态服务 → 逐屏真实渲染截图 → 关服务。
-  产物在 `preview/screens/`，2 倍图：`01-08` 是设计稿的 8 屏，`09-13` 是设计稿没画、
-  但内部要验收的二级页（编辑题目 / 复习会话 / 批量入库 / 备份恢复 / 设置）。
+- `preview/screens.sh`（`npm run preview`）：起临时静态服务 → 逐屏真实渲染截图 →
+  拼两张 README 顶部的合集图 → 关服务。产物有三样：
+  - `preview/screens/`：13 张单屏 2 倍图。`01-08` 是设计稿的 8 屏，`09-13` 是设计稿没画、
+    但内部要验收的二级页（编辑题目 / 复习会话 / 批量入库 / 备份恢复 / 设置）；
+  - `preview/ui-8-screens.png`：8 屏合集（两行四列）；
+  - `preview/ui-extra-pages.png`：二级页合集（一行五列）。
+
+  合集的拼法在脚本里的 `compose()`：不引 Pillow / imagemagick（本机装不上），
+  直接复用脚本本来就依赖的 Chrome —— 生成一个 HTML 网格页再整页截图。
+  两张合集图由脚本确定性生成，重跑不产生 diff。
 - `preview/shoot.sh`：单屏截图，`bash preview/shoot.sh <名字> <路由> [高度] [query]`。
 - `preview/live_shot.html`：390px iframe 承载页；路由里写 `{{id}}` 时，先启动应用读出题目 id
   再替换进去跳转（演示库每次冷启动都会重新播种，id 是随机 uuid）。

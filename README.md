@@ -573,6 +573,12 @@ cp proxy/.env.example proxy/.env     # 填 LLM_API_KEY（智谱 GLM-4-Flash 有�
 换模型只改 `.env` 三行（`LLM_BASE_URL` / `LLM_MODEL` / `LLM_API_KEY`），代码不动：
 智谱 GLM-4-Flash（默认，永久免费）、硅基流动、DeepSeek、本地 Ollama 都兼容。
 
+**手机上验证**：`bash proxy/serve_public.sh`（Windows 双击 `proxy/serve_public.bat`）会起一个
+公网 https 地址，页面和接口同源，证书是合法签发的（不是自签），手机直接打开就能用。
+局域网直连用 `python proxy/serve_local.py`（自签证书，手机点一次「继续访问」）。
+小程序真机需要备案域名白名单，开发阶段只能靠手机端「打开调试」临时跳过——
+三种场景的具体步骤和限制都写在 `proxy/README.md` 的「真机验证」一节。
+
 `python proxy/selftest.py` 是离线自测：起一个桩服务冒充模型厂商，覆盖「JSON 直出 /
 被 json 围栏包裹 / 完全不听指令返回纯文本的降级 / 上游 500 / 未配 Key / MOCK / healthz」
 共 18 项断言，不联网也不需要真 Key，已接进 CI 的独立 job。

@@ -37,6 +37,38 @@ POST /api/ai/answer      请求 {question, category, difficulty, style, sections
 
 字段定义与 `src/types/ai.ts` 的 `AnswerRequest` / `AnswerResult` 一一对应。
 
+## 真机验证（手机也能调通）
+
+`proxy/serve_local.py` 把 **H5 产物和代理挂在同一个源**下。同源是必须的：
+手机浏览器只在「打开页面」时给一次信任机会，XHR 打到另一个自签源会被直接拦掉
+（`ERR_CERT_AUTHORITY_INVALID`），连「继续访问」都点不了。同源之后，一次信任通吃页面和接口。
+
+三种场景，实测数据都记在下面：
+
+| 场景 | 地址 | 证书 |
+|---|---|---|
+| 局域网直连（同一 WiFi） | `python proxy/serve_local.py` → `https://<局域网IP>:8443` | 自签，脚本现场生成（SAN 含 IP，30 天），手机点一次「继续访问」 |
+| **公网穿透（推荐）** | `bash proxy/serve_public.sh`（Windows 双击 `serve_public.bat`）→ `https://*.trycloudflare.com` | **合法签发**，手机无需任何信任操作 |
+| 穿透后给小程序用 | 同上，但需手机端「打开调试」跳过域名校验，见下 | 同上 |
+
+公网方案用的是 cloudflared 免注册的快速隧道：它给的域名自带合法证书，
+比自签更省事，也不要求手机和电脑在同一个网络。
+
+```bash
+# 前置：PATH 里有 cloudflared（改名后丢到任意 PATH 目录即可）
+#   https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe
+bash proxy/serve_public.sh          # Windows 双击 proxy/serve_public.bat
+```
+
+打印出的 `https://xxx.trycloudflare.com` 一个地址用两处：
+浏览器打开它就是 H5 应用；应用里「服务端地址」也填它。
+
+**小程序真机的硬门槛（绕不过，别白费力气）**：小程序要求 request 域名是
+**已备案域名**且配置在后台白名单里，自签证书和穿透域名都不满足。
+开发阶段唯一可行的办法是手机端「打开调试」临时跳过域名校验：
+开发者工具预览扫码 → 手机上胶囊菜单 ⋯ → 打开调试 → 重新进入小程序。
+正式版/体验版仍然必须备案域名。
+
 ## 上生产前必须改的三处
 
 1. `allow_origins=["*"]` → 换成你的实际域名（现在任何网页都能拿你的 Key 刷额度）；

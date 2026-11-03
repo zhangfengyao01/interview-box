@@ -19,6 +19,13 @@ Thumbs.db
 .env.*
 !.env.example
 
+# 本地真机验证用的自签证书（serve_local.py 现场生成，别提交）
+proxy/_local/
+
+# Python 缓存（代理是自签自跑的独立进程，产物不入库）
+__pycache__/
+*.pyc
+
 # 校验脚本的中间产物
 .verify-segment.bundle.mjs
 

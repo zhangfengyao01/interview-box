@@ -85,6 +85,7 @@ npm run build:h5        # 产物 dist/build/h5
 npm run build:mp-weixin # 产物 dist/build/mp-weixin
 npm run preview         # 真实渲染截图，产物 preview/screens/*.png（需本机 Chrome）
 npm run verify:backup   # 备份三段式端到端验证（导出 → 清空 → 导入）
+npm run verify:segment  # 拆题规则回归（两份真实 OCR 原文 + 编号写法 + 负例）
 
 # 部署到子路径时（GitHub Pages 就是这样）要告诉构建产物资源前缀，否则 /assets/* 会 404
 UNI_H5_BASE=/interview-box/ npm run build:h5
@@ -235,6 +236,53 @@ H5 / 小程序产物里不该出现（小程序也编不过）。
 - `utssdk/interface.uts` 是 UTS 语法，`vue-tsc` 不认，所以 `src/env.d.ts` 里手写了一份
   `declare module '@/uni_modules/local-ocr-lite'`，**改接口时两边要一起改**。
 
+#### 拆题：一次「识别不准」的误判
+
+用户反馈「准确率不行，识别处理不对」，附了一张题目列表截图和一张结果截图——13 道题只剩两条：
+`【第 1 张】` 和 `49 澡"咱会廿`。看起来像 OCR 崩了。
+
+实际量下来不是。先把那张图在同一套 tesseract 配置下跑一遍，用 13 道题的**题面相似度**打分：
+
+| 配置 | 题面均分 | 拆出题数 |
+| --- | --- | --- |
+| `chi_sim` / 原图 / psm6（最终采用） | **0.996** | 13/13 |
+| `chi_sim+eng` / 原图 / psm6 | 0.924 | 12/13 |
+| `chi_sim+eng` / 灰度+对比度拉伸 / psm6 | 0.987 | 12/13 |
+| `chi_sim+eng` / 2 倍放大 / psm6 | 0.852 | 11/13 |
+
+OCR 本身几乎是对的。真正的问题在 `services/question/segmenter.ts`：
+
+1. 它只认 `1.` `1、` `(1)` 这类**文字题号**，而这张截图里题号是**界面上的圆形图标**，
+   OCR 拿不到数字——13 行一条都没匹配上，整段被并成 1 块；
+2. 唯一的 `01:49` 状态栏时间反而命中了 `\d{1,3}:` 那条编号规则，成了「第 1 题」；
+3. 剩下的字被塞进第 2 块，就是那句 `49 澡"咱会廿`。
+
+所以补了第二条切分策略：**问句式**。整段是一行一条的清单、题号又是图标时，
+「带问号的短行」才是可靠边界。两条策略都跑，取拆得多的那条；编号式仍然优先于一切。
+
+`isQuestionLine()` 只做两件事——行内有问号就算题面（不锚定行尾，因为 OCR 常在问号后
+拖一个「简单/中等」的残字）；界面把题面截断成「…」导致问号没了，则靠「省略号 + 行尾难度标签」认。
+上限定 60 字是为了排除「正文里恰好有问号」的段落。触发门槛是**问句行 ≥ 3 且过半**，
+避免把散文拆散。
+
+拆出来之后还有一层：题号图标被 OCR 认成的残渣得抹掉。这个只能靠实测反推，
+所以 `scripts/fixtures/` 里放的是**两份真实输出**，同一张图两条链路各跑一遍：
+
+| 夹具 | 链路 | 图标被认成 |
+| --- | --- | --- |
+| `ocr-list-screenshot.txt` | Node（tesseract.js 直接读 Buffer） | `《O` `《9` `《约` `《OA2A` |
+| `ocr-list-browser.txt` | 浏览器（同一套 wasm，走 canvas） | `《O` `《DRAG` `人 ` `人9 ` |
+
+清理规则踩了两个坑，都在代码注释里写死了：
+
+- **「图标 + 一个汉字」那支必须要求紧跟空格**。先写成「图标 → 可选数字 → 可选汉字」，
+  `《2 在 RAG…` 里的「在」就被吞了，题面变成「RAG 应用中…」；
+- **「图标 + 大写字母」那支要加 `(?![a-z])`**。否则 `《Python 编程…` 这种书名列会被削成「ython」，
+  而 `《DRAG` 后面跟的是大写 `R`，照削不误——正好把 `D` 去掉。
+
+这两份夹具 + 6 种编号写法 + 4 条负例 = `npm run verify:segment` 的 48 项断言，
+已接进 CI。规则是纯字符串处理，改一条正则就可能悄悄改掉别处，不钉住不行。
+
 ### 4.2 AI：只产草稿，绝不覆盖已有答案
 
 ```
@@ -287,6 +335,8 @@ acceptDraft({ editedText, overwrite })   ← 唯一写 reference_answer 的入�
 | `npm run build:h5` | 成功，按路由分包 |
 | `npm run build:mp-weixin` | 成功，`plus.sqlite` 未进包 |
 | `npm run verify:backup` | **35 项全通过**（导出 → 清空 → 覆盖恢复 → 合并恢复，含 5 条负例） |
+| `npm run verify:segment` | **48 项全通过**（两份真实 OCR 输出逐条比对 + 6 种编号写法 + 4 条负例） |
+| 拆题准确率（真实截图）※ | 13/13 条题面与截图逐字对上，题面相似度 **0.996**，详见 4.1 |
 | 产物密钥扫描 | `dist/` 内无 `sk-` / `AKID` / `gh?_` / 私钥块，命中即 fail（跳过 `static/ocr` 第三方 wasm 内核与二进制 —— 那几 MB 随机字节必然误伤，规则本身没放宽，塞个假 `AKID` 进去照样能拦下） |
 | GitHub Pages | verify 全绿后自动部署到 <https://zhangfengyao01.github.io/interview-box/>（PR 只验不发布） |
 | 启动兜底（H5）※ | 四种情形实测：正常不出现 / 资源 404 立即报出失败 URL / 脚本空转 8 秒超时报 / 慢加载跨过超时后自动撤回 |
@@ -416,6 +466,12 @@ HBuilderX 自带一个 CLI，可以不打开 IDE 就编单个 uni_modules：
    但它**有本地 OCR**（tesseract.js WASM），不需要联网、不需要代理，可以直接传张试题截图试。
    它用来「点开就能看界面」，不是真机能力的证明 —— 真机差异见[第五节](#五平台差异能力边界不是-bug)。
    另外换设备/换浏览器就是另一份数据，因为数据只存在你自己的 localStorage 里。
+8. **H5 的 OCR 是「够用」不是「最优」**：只带 `chi_sim` 一个模型（5.5MB），
+   纯英文/代码符号会掉字，大段英文建议用粘贴文本。实测过加 `eng` 一起跑，
+   反而是变差的（题面均分 0.924 vs 0.996）—— 中英混合时 `eng` 会抢掉部分汉字的判定。
+   另外截图里的**题号图标**（界面上的圆形数字）本就不是文字，OCR 认成 `《O` / `人` / `D` 这类杂字，
+   拆题时会尽量抹掉，但抹不干净时可能残留一个字符（例如 `《Python` 这种书名列，为了不误伤会选择保留）。
+   这是刻意取舍：宁可留一个杂字，也不吃正文。
 
 ---
 
@@ -432,6 +488,9 @@ HBuilderX 自带一个 CLI，可以不打开 IDE 就编单个 uni_modules：
 - `preview/_measure.html`：在 iframe 里跑 `getBoundingClientRect` / `elementFromPoint`，
   定位「文字被谁盖住」这类只在实际渲染里才暴露的问题。
 - `scripts/verify-backup.mjs`（`npm run verify:backup`）：备份三段式的端到端验证，见 6.0。
+- `scripts/verify-segment.mjs`（`npm run verify:segment`）：拆题规则的回归验证，见 4.1。
+  夹具 `scripts/fixtures/ocr-list-*.txt` 是**真实**识别原文，同图两条链路各一份，不是手写的。
+  `npm run verify:segment` 与 `verify:backup` 都已接进 CI。
 - `scripts/port-page.js`：迁移期用于把旧页面「原样保留 template/style、只换 script」，
   保证换技术栈不改像素。
 

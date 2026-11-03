@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   verify:
-    name: type-check · backup-e2e · build
+    name: type-check · backup-e2e · segment · build
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -46,6 +46,10 @@ jobs:
       # 导出 → 5 条负例 → 清空 → 覆盖恢复 → 合并恢复，35 项断言
       - name: 备份恢复端到端
         run: npm run verify:backup
+
+      # 拆题规则回归：两份真实 OCR 输出（Node 链路 / 浏览器链路）+ 编号格式 + 负例，48 项断言
+      - name: 拆题规则回归
+        run: npm run verify:segment
 
       # 这里刻意不设 UNI_H5_BASE：验的是「本地默认 '/' 地址」这条路径
       - name: 构建 H5

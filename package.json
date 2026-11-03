@@ -12,6 +12,7 @@
     "build:mp-weixin": "uni build -p mp-weixin && node scripts/trim-static.mjs",
     "type-check": "vue-tsc --noEmit",
     "verify:backup": "node scripts/verify-backup.mjs",
+    "verify:segment": "node scripts/verify-segment.mjs",
     "preview": "bash preview/screens.sh"
   },
   "dependencies": {

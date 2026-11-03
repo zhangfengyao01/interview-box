@@ -19,6 +19,9 @@ Thumbs.db
 .env.*
 !.env.example
 
+# 校验脚本的中间产物
+.verify-segment.bundle.mjs
+
 # 日志
 *.log
 npm-debug.log*

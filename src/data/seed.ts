@@ -4,9 +4,12 @@ import type { DatabaseAdapter } from '@/adapters/database/types'
 import { toRow } from '@/adapters/database/mappers'
 import type { MasteryStatus } from '@/types/models'
 import { BUILTIN_CATEGORIES } from './categories'
+import * as banks from './banks'
 
 /**
- * 示例数据：5 个内置分类 + 14 个标签 + 32 道题（前端 18 + AI 大模型 14）。
+ * 示例数据：5 个内置分类 + 16 个标签 + 148 道题
+ * （前端 8 + 算法 4 + 产品 3 + 项目 3 + AI 大模型 14 + 前端题库 116：
+ *   React 23 / TypeScript 26 / 编程 24 / 工程化 22 / 性能优化 21）。
  *
  * 写入策略分两条：
  * - `seedIfEmpty`：只在「库里一道题都没有」时写入（首次启动），
@@ -17,7 +20,7 @@ import { BUILTIN_CATEGORIES } from './categories'
  */
 
 /** 示例库版本：新增/修改内置示例题时 +1 */
-export const SEED_VERSION = 2
+export const SEED_VERSION = 3
 const SEED_VERSION_KEY = 'interview_box_seed_version'
 
 export const SEED_TAGS: { id: string; name: string; color: string }[] = [
@@ -34,10 +37,22 @@ export const SEED_TAGS: { id: string; name: string; color: string }[] = [
   { id: 'tag_大模型', name: '大模型', color: '#8B5CF6' },
   { id: 'tag_RAG', name: 'RAG', color: '#3B82F6' },
   { id: 'tag_Agent', name: 'Agent', color: '#10B981' },
-  { id: 'tag_提示工程', name: '提示工程', color: '#F59E0B' }
+  { id: 'tag_提示工程', name: '提示工程', color: '#F59E0B' },
+  { id: 'tag_React', name: 'React', color: '#149ECA' },
+  { id: 'tag_TypeScript', name: 'TypeScript', color: '#3178C6' }
 ]
 
-interface SeedQuestion {
+/**
+ * 示例题的「来源素材」。素材只服务于「这批题从哪来的」追溯展示，
+ * 不同批次各挂各的素材，补种时按需创建。
+ */
+export const SEED_ASSETS: { id: string; rawText: string }[] = [
+  { id: 'asset_seed_1', rawText: '面试题整理（示例）' },
+  { id: 'asset_seed_ai', rawText: 'AI 大模型面试题（示例）' },
+  { id: 'asset_seed_fe', rawText: '前端面试题合集（示例）' }
+]
+
+export interface SeedQuestion {
   title: string
   categoryId: string
   referenceAnswer?: string
@@ -48,6 +63,10 @@ interface SeedQuestion {
   reviewCount?: number
   isFavorite?: boolean
   createdAt?: number
+  /** 难度 1/2/3，缺省按 2 */
+  difficulty?: 1 | 2 | 3
+  /** 这批题挂在哪个来源素材下，缺省 asset_seed_1 */
+  assetId?: string
   tags: string[]
 }
 
@@ -246,8 +265,18 @@ function buildQuestions(): SeedQuestion[] {
       createdAt: t - 20 * H,
       tags: ['项目复盘']
     },
-    ...buildAiQuestions(t)
+    ...buildAiQuestions(t),
+    ...buildFrontendQuestions(t)
   ]
+}
+
+/**
+ * 前端五大方向题库（116 道）单独拆到了 src/data/banks/：
+ * React / TypeScript / 编程 / 工程化 / 性能优化，每个方向一个文件。
+ * 答案统一是「面试简洁版」—— 结论先行、两三个展开点、手写题给最小可背实现。
+ */
+function buildFrontendQuestions(t: number): SeedQuestion[] {
+  return banks.buildFrontendQuestions(t)
 }
 
 /**
@@ -415,19 +444,23 @@ export async function seedIfEmpty(db: DatabaseAdapter): Promise<boolean> {
       SEED_TAGS.map((tag) => toRow('tags', { ...tag, createdAt: t }))
     )
 
-    const asset = {
-      id: 'asset_seed_1',
-      sourceType: 'text' as const,
-      filePath: null,
-      rawText: '面试题整理（示例）',
-      editedText: '面试题整理（示例）',
-      ocrEngine: 'manual',
-      createdAt: t - 2 * DAY_MS
+    for (const asset of SEED_ASSETS) {
+      await tx.insert(
+        'source_assets',
+        toRow('source_assets', {
+          id: asset.id,
+          sourceType: 'text' as const,
+          filePath: null,
+          rawText: asset.rawText,
+          editedText: asset.rawText,
+          ocrEngine: 'manual',
+          createdAt: t
+        })
+      )
     }
-    await tx.insert('source_assets', toRow('source_assets', asset))
 
     for (const item of buildQuestions()) {
-      await insertSeedQuestion(tx, item, asset.id, t)
+      await insertSeedQuestion(tx, item, item.assetId ?? 'asset_seed_1', t)
     }
   })
 
@@ -461,8 +494,26 @@ export async function seedSupplement(db: DatabaseAdapter): Promise<number> {
 
   const have = new Set(rows.map((r) => normTitle(String(r.title || ''))))
   const t = Date.now()
-  const assetId = 'asset_seed_ai'
   let added = 0
+
+  /** 来源素材按需创建：老库可能只有 asset_seed_1，缺哪个补哪个 */
+  const ensureAsset = async (tx: DatabaseAdapter, id: string): Promise<void> => {
+    const hit = await tx.first('source_assets', { eq: { id } })
+    if (hit) return
+    const def = SEED_ASSETS.find((a) => a.id === id)
+    await tx.insert(
+      'source_assets',
+      toRow('source_assets', {
+        id,
+        sourceType: 'text' as const,
+        filePath: null,
+        rawText: def?.rawText ?? '示例题（补充批次）',
+        editedText: def?.rawText ?? '示例题（补充批次）',
+        ocrEngine: 'manual',
+        createdAt: t
+      })
+    )
+  }
 
   await db.transaction(async (tx) => {
     for (const c of BUILTIN_CATEGORIES) {
@@ -481,23 +532,9 @@ export async function seedSupplement(db: DatabaseAdapter): Promise<number> {
     const missing = buildQuestions().filter((q) => !have.has(normTitle(q.title)))
     if (!missing.length) return
 
-    const assetHit = await tx.first('source_assets', { eq: { id: assetId } })
-    if (!assetHit) {
-      await tx.insert(
-        'source_assets',
-        toRow('source_assets', {
-          id: assetId,
-          sourceType: 'text' as const,
-          filePath: null,
-          rawText: 'AI 大模型面试题（示例）',
-          editedText: 'AI 大模型面试题（示例）',
-          ocrEngine: 'manual',
-          createdAt: t
-        })
-      )
-    }
-
     for (const item of missing) {
+      const assetId = item.assetId ?? 'asset_seed_1'
+      await ensureAsset(tx, assetId)
       await insertSeedQuestion(tx, item, assetId, t)
       added += 1
     }
@@ -523,7 +560,7 @@ async function insertSeedQuestion(
     myAnswer: rest.myAnswer || '',
     notes: rest.notes || '',
     categoryId: rest.categoryId,
-    difficulty: 2,
+    difficulty: rest.difficulty ?? 2,
     masteryStatus: rest.masteryStatus || 'new',
     isFavorite: !!rest.isFavorite,
     answerOrigin: 'manual' as const,

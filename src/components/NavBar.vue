@@ -31,7 +31,24 @@ const props = withDefaults(
   { title: '', showBack: true, fallback: '/pages/home/index' }
 )
 
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 20
+/**
+ * 状态栏高度。只在 APP / 小程序上有意义。
+ *
+ * H5 上页面区域从浏览器地址栏下面才开始，页面里不存在「状态栏」这一层，
+ * uni-h5 的算法是 `statusBarHeight = safeAreaInsets.top`（即 env(safe-area-inset-top)），
+ * 浏览器里它就是 0 —— 而下面的 `|| 20` 兜底会把这个 0 变成 20px，
+ * 白底导航栏被凭空垫高一条，看起来就是「导航栏上面多了一块空白」。
+ * 实测（无头 Chrome，375x812 仿真）：.nav 的 paddingTop = 20px、.nav-inner 只有 44px。
+ * 所以 H5 直接写死 0；APP / 小程序才读系统值，读不到再兜底 20。
+ *
+ * 注意别改回 `const statusBarHeight = uni.getSystemInfoSync()... || 20` 一行式写法：
+ * 那样 H5 也走兜底。用「先声明、条件编译里再赋值」是为了让 vue-tsc 只看到一个声明
+ * （#ifdef 的两个分支 vue-tsc 都看得见，写两个 const 会报重复声明）。
+ */
+let statusBarHeight = 0
+// #ifndef H5
+statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 20
+// #endif
 
 function onBack(): void {
   if (!props.showBack) return
@@ -48,7 +65,9 @@ function onBack(): void {
   left: 0;
   right: 0;
   z-index: 90;
-  background-color: #ffffff;
+  /* 和页面底色一致：不再是一条突兀的白色横条，标题/图标像是直接落在页面上。
+     用变量而不是写死色值，将来深色模式换 token 时能一起跟着变。 */
+  background-color: var(--bg-page);
 }
 
 .nav-inner {

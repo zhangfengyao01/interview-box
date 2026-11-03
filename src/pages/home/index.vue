@@ -135,7 +135,17 @@ const entries = [
   { key: 'manual', icon: 'plus', color: '#5B50F5', title: '手动添加', sub: '自由编辑题目' }
 ]
 
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 20
+/**
+ * 顶部状态栏占位（给自定义导航区让位）。
+ * 与 components/NavBar.vue 里是同一个坑：H5 上 uni 算出的 statusBarHeight 是 0
+ * （`safeAreaInsets.top`，浏览器里 env(safe-area-inset-top) 就是 0），
+ * `|| 20` 会凭空垫出一条 20px 的空白。所以 H5 写死 0，APP / 小程序才读系统值。
+ * 「先声明、#ifndef 里再赋值」是为了让 vue-tsc 只看到一个声明。
+ */
+let statusBarHeight = 0
+// #ifndef H5
+statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 20
+// #endif
 
 const statList = computed(() => [
   { value: app.stats.total, label: '总题数' },

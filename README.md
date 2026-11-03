@@ -377,6 +377,24 @@ acceptDraft({ editedText, overwrite })   ← 唯一写 reference_answer 的入�
 banner 加「扫描框背板 + 倾斜纸张 + 手绘标语弧线」、复习页圆环用 conic-gradient 蓝紫渐变、
 头像用纯 CSS 画（不引位图）。
 
+**顶部导航栏的 H5 差异**（实测，不是猜的）：`.nav` 原来是白底 + `paddingTop: statusBarHeight`。
+H5 浏览器里页面区域从地址栏下面才开始，压根没有状态栏这一层 —— uni-h5 的
+`statusBarHeight = safeAreaInsets.top`（即 `env(safe-area-inset-top)`）实测返回 0，
+但代码里的 `|| 20` 兜底把 0 变成了 20px，白底导航栏被凭空垫高一条，
+看起来就是「导航栏上面多了一块空白」。无头 Chrome 375×812 仿真量到：
+`.nav` paddingTop 20px / 总高 64px，而 `.nav-inner` 只有 44px。
+
+修法两条，H5 专用、APP 与小程序不受影响：
+
+1. `statusBarHeight` 在 H5 写死 0（`#ifndef H5` 里才读 `getSystemInfoSync()`），
+   同样的兜底在首页 `pages/home/index.vue` 也有一份，一起修了；
+2. `.nav` 背景从 `#ffffff` 改成 `var(--bg-page)`，和页面底色 `#F5F5FE` 一致 ——
+   不再有一条突兀的白色横条，标题和图标像是直接落在页面上。
+   用变量而不是写死色值，将来换深色 token 时能一起跟着变。
+
+改完复测：`.nav` paddingTop `0px`、高度 44px、`background-color` 与 `UNI-PAGE-BODY`
+同为 `rgb(245,245,254)`；首页顶部占位 `height: 0px`。底部 TabBar 仍是白底，未动。
+
 ### 6.2 截图为什么必须走 iframe
 
 headless Chrome 有约 **504px 的最小视口**，直接 `--window-size=390,844` 会按 504 渲染再裁切，

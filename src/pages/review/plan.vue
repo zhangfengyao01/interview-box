@@ -255,11 +255,16 @@ async function recalc(): Promise<void> {
   white-space: nowrap;
 }
 
+/* 行内小药丸：柔光玻璃（淡紫磨砂），配方见 global.scss。 */
 .row-btn {
   height: 60rpx;
   padding: 0 24rpx;
   border-radius: 30rpx;
-  background-color: #eaebfd;
+  background-image: var(--glass-bg-tint);
+  border: var(--glass-border);
+  box-shadow: var(--glass-sheen), var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   display: flex;
   align-items: center;
 }
@@ -358,12 +363,14 @@ async function recalc(): Promise<void> {
   background-color: #38bdf8;
 }
 
+/* AI 卡片主按钮：渐变主体 + 顶部内高光 + 柔光投影，配方同 .btn-primary。 */
 .ai-btn {
   margin-top: 28rpx;
   width: 232rpx;
   height: 84rpx;
   border-radius: 42rpx;
   background-image: linear-gradient(90deg, #5b50f5, #7b6df8);
+  box-shadow: var(--glass-sheen), var(--glow-primary);
   display: flex;
   align-items: center;
   justify-content: center;

@@ -63,13 +63,18 @@ const emit = defineEmits<{ action: [] }>()
   padding-right: 60rpx;
 }
 
+/* 空态动作按钮：淡紫磨砂玻璃药丸，配方见 global.scss。 */
 .empty-action {
   margin-top: 32rpx;
   height: 72rpx;
   padding-left: 40rpx;
   padding-right: 40rpx;
   border-radius: 36rpx;
-  background-color: #eaebfd;
+  background-image: var(--glass-bg-tint);
+  border: var(--glass-border);
+  box-shadow: var(--glass-sheen), var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   display: flex;
   align-items: center;
 }

@@ -464,10 +464,15 @@ function confirmDelete(): void {
   margin: 44rpx 32rpx 40rpx;
 }
 
+/* 柔光玻璃药丸：配方同 global.scss 的 .btn-soft（变量也是全局定义的）。 */
 .foot-btn {
   height: 96rpx;
   border-radius: 48rpx;
-  background-color: #eaebfd;
+  background-image: var(--glass-bg-tint);
+  border: var(--glass-border);
+  box-shadow: var(--glass-sheen), var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   display: flex;
   flex-direction: row;
   align-items: center;

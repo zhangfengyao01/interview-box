@@ -372,6 +372,7 @@ function goBatch(): void {
   color: #a9aec2;
 }
 
+/* 迷你玻璃药丸（淡紫磨砂），配方见 global.scss。 */
 .mini-btn {
   display: flex;
   flex-direction: row;
@@ -379,7 +380,11 @@ function goBatch(): void {
   height: 64rpx;
   padding: 0 24rpx;
   border-radius: 32rpx;
-  background-color: #eaebfd;
+  background-image: var(--glass-bg-tint);
+  border: var(--glass-border);
+  box-shadow: var(--glass-sheen), var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .mini-btn-text {

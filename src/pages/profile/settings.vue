@@ -272,11 +272,16 @@ function reseed(): void {
 </script>
 
 <style scoped>
+/* 迷你玻璃药丸：清玻璃款（灰字弱动作），配方见 global.scss。 */
 .mini-btn {
   height: 54rpx;
   padding: 0 22rpx;
   border-radius: 27rpx;
-  background-color: #f2f2f8;
+  background-image: var(--glass-bg);
+  border: var(--glass-border);
+  box-shadow: var(--glass-sheen), var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   display: flex;
   align-items: center;
   justify-content: center;

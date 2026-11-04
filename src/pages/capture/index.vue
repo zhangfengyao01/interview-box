@@ -609,6 +609,7 @@ function start(): void {
   align-items: center;
 }
 
+/* 迷你玻璃药丸：贴在浅紫底上，半透白 + 模糊出玻璃感。配方见 global.scss。 */
 .mini-btn {
   display: flex;
   flex-direction: row;
@@ -616,7 +617,11 @@ function start(): void {
   height: 52rpx;
   padding: 0 20rpx;
   border-radius: 26rpx;
-  background-color: #ffffff;
+  background-image: var(--glass-bg);
+  border: var(--glass-border);
+  box-shadow: var(--glass-sheen), var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   margin-left: 14rpx;
 }
 

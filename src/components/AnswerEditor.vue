@@ -97,12 +97,17 @@ function onInput(e: Event): void {
   align-items: center;
 }
 
+/* AI 徽章小药丸：淡紫磨砂玻璃，配方见 global.scss。 */
 .ansed-ai {
   height: 46rpx;
   padding-left: 16rpx;
   padding-right: 18rpx;
   border-radius: 23rpx;
-  background-color: #eaebfd;
+  background-image: var(--glass-bg-tint);
+  border: var(--glass-border);
+  box-shadow: var(--glass-sheen), var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   display: flex;
   flex-direction: row;
   align-items: center;

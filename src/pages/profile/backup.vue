@@ -265,12 +265,17 @@ async function doRestore(): Promise<void> {
   flex-direction: row;
 }
 
+/* 备份大操作卡：淡紫磨砂玻璃（半透 + 内高光 + 柔投影），配方见 global.scss。 */
 .act {
   flex: 1;
   height: 140rpx;
   margin-right: 20rpx;
   border-radius: 27rpx;
-  background-color: #eaebfd;
+  background-image: var(--glass-bg-tint);
+  border: var(--glass-border);
+  box-shadow: var(--glass-sheen), var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   display: flex;
   flex-direction: column;
   align-items: center;

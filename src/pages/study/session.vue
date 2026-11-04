@@ -294,13 +294,18 @@ function back(): void {
   flex-direction: row;
 }
 
+/* 掌握度打分卡：白卡换成磨砂玻璃片（半透白 + 内高光 + 柔投影），
+   在白底 .qcard 里靠描边和阴影撑出层次。配方见 global.scss。 */
 .rate {
   flex: 1;
   height: 110rpx;
   margin-right: 16rpx;
   border-radius: 24rpx;
-  border: 2rpx solid #e3e5ee;
-  background-color: #ffffff;
+  border: 1rpx solid rgba(255, 255, 255, 0.85);
+  background-image: var(--glass-bg);
+  box-shadow: var(--glass-sheen), var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   display: flex;
   flex-direction: column;
   align-items: center;

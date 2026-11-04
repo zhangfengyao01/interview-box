@@ -617,14 +617,21 @@ function remove(): void {
   justify-content: center;
 }
 
+/* 底部弹层的按钮组：ghost 换清玻璃、primary 加反光内高光 + 柔光投影，
+   配方同 global.scss（--glass-* / --glow-primary 变量在 page 上定义）。 */
 .sheet-btn--ghost {
-  background-color: #f2f2f8;
+  background-image: var(--glass-bg);
+  border: var(--glass-border);
+  box-shadow: var(--glass-sheen), var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   margin-right: 20rpx;
   flex: 0 0 200rpx;
 }
 
 .sheet-btn--primary {
   background-image: linear-gradient(90deg, #5b50f5, #7b6df8);
+  box-shadow: var(--glass-sheen), var(--glow-primary);
 }
 
 .sheet-btn-ghost-text {

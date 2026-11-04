@@ -33,6 +33,18 @@ page {
   --radius-card: 32rpx;
   --radius-lg: 40rpx;
 
+  /* 柔光玻璃按钮配方（2026-11）：半透明白 + 顶部内高光 + 柔投影 + 背景模糊。
+     backdrop-filter 在新客户端（iOS WKWebView / Android Chromium 76+）都支持，
+     不支持时退化为「半透明白叠在浅底色上」，视觉仍成立 —— 所以不写 JS 探测。
+     页面局部按钮照抄这套变量，别自己拼 rgba，方便将来全局调。 */
+  --glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.5));
+  --glass-bg-tint: linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(232, 233, 252, 0.55));
+  --glass-border: 1rpx solid rgba(255, 255, 255, 0.85);
+  --glass-sheen: inset 0 2rpx 0 rgba(255, 255, 255, 0.95);
+  --glass-shadow: 0 10rpx 26rpx rgba(70, 66, 140, 0.1);
+  --glass-blur: blur(9px) saturate(150%);
+  --glow-primary: 0 12rpx 32rpx rgba(91, 80, 245, 0.3);
+
   background-color: var(--bg-page);
   color: var(--text);
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue',
@@ -133,11 +145,14 @@ textarea {
   color: var(--text-sub);
 }
 
-/* ============ 按钮 ============ */
+/* ============ 按钮（柔光玻璃感） ============ */
+/* 主 CTA：渐变主体不变（可点击性靠它），加「顶部内高光 = 玻璃反光」和
+   紫色柔光投影。不叠 backdrop-filter —— 渐变本身不透明，模糊了也看不见。 */
 .btn-primary {
   height: 100rpx;
   border-radius: 50rpx;
   background-image: linear-gradient(90deg, var(--grad-from), var(--grad-to));
+  box-shadow: var(--glass-sheen), var(--glow-primary);
   color: #ffffff;
   font-size: 31rpx;
   font-weight: 700;
@@ -146,10 +161,16 @@ textarea {
   justify-content: center;
 }
 
+/* 次级动作：磨砂玻璃药丸。半透明白叠在页面浅紫底上，
+   blur 把底下颜色揉出一点点进按钮里 —— 这就是「玻璃感」的来源。 */
 .btn-soft {
   height: 96rpx;
   border-radius: 48rpx;
-  background-color: var(--primary-soft);
+  background-image: var(--glass-bg-tint);
+  border: var(--glass-border);
+  box-shadow: var(--glass-sheen), var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   color: var(--primary);
   font-size: 27rpx;
   font-weight: 700;
@@ -158,10 +179,15 @@ textarea {
   justify-content: center;
 }
 
+/* 弱动作：清玻璃描边款。 */
 .btn-ghost {
   height: 92rpx;
   border-radius: 46rpx;
-  border: 1px solid #e0e0ee;
+  background-image: var(--glass-bg);
+  border: var(--glass-border);
+  box-shadow: var(--glass-sheen), var(--glass-shadow);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   color: var(--text-body);
   font-size: 27rpx;
   display: flex;
@@ -170,9 +196,11 @@ textarea {
 }
 
 .tap {
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
+/* 按压缩到 0.98：玻璃被「按下去」的手感，配合 opacity 双保险。 */
 .tap:active {
-  opacity: 0.65;
+  opacity: 0.72;
+  transform: scale(0.98);
 }
